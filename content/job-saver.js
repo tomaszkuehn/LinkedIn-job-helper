@@ -167,9 +167,47 @@
     return CITY_COORDS[k] || null;
   }
 
+  // Heuristic: does the location string contain a postcode or street address?
+  // If not, we don't geocode it and don't show distance (per user request).
+  const POSTCODE_RE = /\b\d{5}\b|\b\d{2}-\d{3}\b/;
+  const STREET_RE = /\b(?:str\.?|straße|strasse|ave\.?|avenue|rd\.?|road|st\.?|street|pl\.?|platz|gasse|weg|allee|boulevard|ul\.?|ulica)\b[.\s]*[a-ząćęłńóśźżäöüß\-]+(?:\s+\d+|\s+\d+\s*\w)?/i;
+  const STREET_NUMBER_RE = /\b\d+[a-z]?\s*(?:[\/\-]\s*\d+[a-z]?)?\b\s*(?=\s|$|,)/i;
+
+  function hasPreciseLocation(location) {
+    const s = String(location || "");
+    if (!s.trim()) return false;
+    return POSTCODE_RE.test(s) || STREET_RE.test(s) || STREET_NUMBER_RE.test(s);
+  }
+
+  // In-memory cache for geocoded job locations (keyed by query string).
+  // Avoids repeated Nominatim hits when navigating between the same jobs.
+  const geoCache = new Map();
+
+  async function geocodeJobLocation(query) {
+    const q = String(query || "").trim();
+    if (!q) return null;
+    if (geoCache.has(q)) return geoCache.get(q);
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(q);
+    try {
+      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      if (!res.ok) { geoCache.set(q, null); return null; }
+      const arr = await res.json();
+      if (!Array.isArray(arr) || arr.length === 0) { geoCache.set(q, null); return null; }
+      const hit = arr[0];
+      const coords = [parseFloat(hit.lat), parseFloat(hit.lon)];
+      geoCache.set(q, coords);
+      return coords;
+    } catch (e) {
+      console.warn("[LJS] geocodeJobLocation error", e);
+      geoCache.set(q, null);
+      return null;
+    }
+  }
+
   // Returns { verdict, reason, distanceKm }
+  // jobCoords: [lat, lon] | null  — geocoded job location (only if precise)
   // homeCoords: [lat, lon] | null  — geocoded home point (stored in settings)
-  function evaluatePreference(workplaceType, city, homeCoords, maxDistanceKm) {
+  function evaluatePreference(workplaceType, city, jobCoords, homeCoords, maxDistanceKm) {
     if (workplaceType === "remote") {
       return { verdict: "good", reason: "Remote — always acceptable", distanceKm: null };
     }
@@ -179,20 +217,20 @@
     if (!homeCoords || !Array.isArray(homeCoords) || homeCoords.length !== 2) {
       return { verdict: "neutral", reason: workplaceType + " — set your home address in Options to enable distance check", distanceKm: null };
     }
-    const max = Number.isFinite(maxDistanceKm) && maxDistanceKm > 0 ? maxDistanceKm : 30;
     const where = city ? city : "unknown city";
-    const c = cityCoords(city);
-    if (!c) {
-      return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure (city not in database)", distanceKm: null };
+    if (!jobCoords || !Array.isArray(jobCoords) || jobCoords.length !== 2) {
+      // No precise location (postcode/street) — don't show distance, don't red-banner.
+      return { verdict: "neutral", reason: workplaceType + " in " + where + " — no precise address (postcode/street) to measure from", distanceKm: null };
     }
-    const d = haversineKm(c, homeCoords);
+    const max = Number.isFinite(maxDistanceKm) && maxDistanceKm > 0 ? maxDistanceKm : 30;
+    const d = haversineKm(jobCoords, homeCoords);
     if (d === null) {
       return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure distance", distanceKm: null };
     }
     if (d <= max) {
-      return { verdict: "good", reason: workplaceType + " in " + where + " — " + d + " km from home (≤ " + max + " km)", distanceKm: d };
+      return { verdict: "good", reason: workplaceType + " — " + d + " km from home (≤ " + max + " km)", distanceKm: d };
     }
-    return { verdict: "bad", reason: workplaceType + " in " + where + " — " + d + " km from home (> " + max + " km)", distanceKm: d };
+    return { verdict: "bad", reason: workplaceType + " — " + d + " km from home (> " + max + " km)", distanceKm: d };
   }
 
   async function getHomeLocation() {
@@ -745,9 +783,18 @@
         if (injectedForJobId === String(jobId)) refreshPreferenceBanner(root, jobId);
       }, 1500);
     }
-    getHomeLocation().then(({ homeCoords, maxDistanceKm }) => {
-      const ev = evaluatePreference(meta.workplaceType, meta.city, homeCoords, maxDistanceKm);
-      console.log("[LJS] preference verdict:", ev, "homeCoords:", homeCoords, "maxDistanceKm:", maxDistanceKm);
+    getHomeLocation().then(async ({ homeCoords, maxDistanceKm }) => {
+      // Geocode the job location only if it contains a postcode or street address.
+      // City-only locations don't get a distance (per user request).
+      let jobCoords = null;
+      const locStr = meta.location || "";
+      if (meta.workplaceType && meta.workplaceType !== "remote" && homeCoords && hasPreciseLocation(locStr)) {
+        console.log("[LJS] preference: precise location detected, geocoding:", locStr);
+        jobCoords = await geocodeJobLocation(locStr);
+        console.log("[LJS] preference: geocoded job coords:", jobCoords);
+      }
+      const ev = evaluatePreference(meta.workplaceType, meta.city, jobCoords, homeCoords, maxDistanceKm);
+      console.log("[LJS] preference verdict:", ev, "homeCoords:", homeCoords, "jobCoords:", jobCoords, "maxDistanceKm:", maxDistanceKm);
       removePrefBanner();
       // Show banner for good and bad. For neutral (unknown workplace / no home city),
       // show an informational banner so the user sees the feature is active.
