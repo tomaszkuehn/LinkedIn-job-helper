@@ -77,6 +77,11 @@
   color: #b00020;
   border-color: #f5b5bd;
 }
+.ljs-pref-banner--neutral {
+  background: #f0f0f0;
+  color: #555;
+  border-color: #d6d6d6;
+}
 
 /* Toast */
 .ljs-toast {

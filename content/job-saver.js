@@ -10,6 +10,7 @@
   // chrome.storage.local to storage rozszerzenia — omija partycjonowanie strony.
   const KEY_JOBS = "ljs_jobs";
   const KEY_SEEN = "ljs_seen";
+  const KEY_SETTINGS = "ljs_settings";
 
   function storageGet(key) {
     return new Promise((resolve) => {
@@ -315,16 +316,71 @@
       root.querySelector(".jobs-description-content__text--stretch") ||
       root.querySelector(".jobs-description__content") ||
       root.querySelector("#job-view-description");
-    const _location = textClean(locEl);
+
+    // Workplace type: LinkedIn exposes it in .job-details-fit-level-preferences
+    // via visually-hidden text "workplace type is Remote" / "workplace type is Hybrid" etc.
+    // This is more reliable than parsing location (which may only say "Germany").
+    let workplaceType = "";
+    const fitPrefs = root.querySelectorAll(".job-details-fit-level-preferences button .visually-hidden, .job-details-fit-level-preferences .visually-hidden");
+    for (const v of fitPrefs) {
+      const t = (v.textContent || "").toLowerCase();
+      const m = t.match(/workplace type is (remote|hybrid|on[-\s]?site)/i);
+      if (m) {
+        workplaceType = m[1].replace(/\s+/g, "").replace("onsite", "onsite").replace("onsite", "onsite");
+        if (workplaceType === "onsite") workplaceType = "onsite";
+        else if (workplaceType === "onsite") workplaceType = "onsite";
+        break;
+      }
+    }
+    // Also check visible labels in fit-level buttons (fallback if visually-hidden missing).
+    if (!workplaceType) {
+      const fitBtns = root.querySelectorAll(".job-details-fit-level-preferences button");
+      for (const b of fitBtns) {
+        const label = (b.textContent || "").trim().toLowerCase();
+        if (/\bremote\b/.test(label) && !/\bhybrid\b/.test(label)) { workplaceType = "remote"; break; }
+        if (/\bhybrid\b/.test(label)) { workplaceType = "hybrid"; break; }
+        if (/\bon[-\s]?site\b/.test(label) || /\bin[-\s]?office\b/.test(label)) { workplaceType = "onsite"; break; }
+      }
+    }
+
+    // Location: try the tertiary description first, then the active job card on the left
+    // (in two-pane view the card often has the full "City, Country (Workplace)" string).
+    let location = textClean(locEl);
+    if (!location) {
+      const activeCard = document.querySelector(
+        ".job-card-container[data-job-id].jobs-search-results-list__list-item--active, " +
+        ".job-card-container[data-job-id][aria-current='page']"
+      );
+      if (activeCard) {
+        const cardLoc = activeCard.querySelector(".job-card-container__metadata-wrapper li, .artdeco-entity-lockup__caption li");
+        location = textClean(cardLoc);
+      }
+    }
+    // Also check the sticky header which sometimes has "Company · City, Country (Workplace)".
+    if (!location) {
+      const sticky = root.querySelector(".job-details-jobs-unified-top-card__sticky-header .t-14, .job-details-jobs-unified-top-card__title-container .t-14");
+      if (sticky) {
+        const t = textClean(sticky);
+        // "SPD Technology · Germany (Remote)" → take part after "·".
+        const parts = t.split("·").map(s => s.trim()).filter(Boolean);
+        if (parts.length >= 2) location = parts.slice(1).join(" · ");
+      }
+    }
+
     const _descText = descEl ? descEl.innerText : "";
-    const _wa = analyzeLocation(_location, _descText);
+    // Run analyzeLocation as fallback for workplace type (if fit-level buttons didn't yield it)
+    // and to extract city.
+    const _wa = analyzeLocation(location, _descText);
+    if (!workplaceType) workplaceType = _wa.workplaceType;
+    const city = _wa.city;
+
     return {
       jobId: String(jobId),
       title: textClean(titleEl),
       company: textClean(companyEl),
-      location: _location,
-      workplaceType: _wa.workplaceType,
-      city: _wa.city,
+      location,
+      workplaceType,
+      city,
       url: "https://www.linkedin.com/jobs/view/" + jobId + "/",
       descriptionHtml: descEl ? descEl.innerHTML : "",
       descriptionText: _descText,
@@ -574,15 +630,33 @@
 
   function refreshPreferenceBanner(root, jobId) {
     const meta = scrapeFromDetail(root, jobId);
+    console.log("[LJS] refreshPreferenceBanner", {
+      jobId,
+      title: meta.title,
+      workplaceType: meta.workplaceType,
+      city: meta.city,
+      location: meta.location,
+      descLen: meta.descriptionText.length,
+    });
     if (!meta.title && !meta.company) { removePrefBanner(); return; }
+    // If workplace type unknown AND description still loading, retry once after delay.
+    if (!meta.workplaceType && meta.descriptionText.length < 50) {
+      console.log("[LJS] preference: description not loaded yet — retry in 1500ms");
+      setTimeout(() => {
+        // Only retry if still on the same job.
+        if (injectedForJobId === String(jobId)) refreshPreferenceBanner(root, jobId);
+      }, 1500);
+    }
     getPreferredCities().then(preferredCities => {
       const ev = evaluatePreference(meta.workplaceType, meta.city, preferredCities);
+      console.log("[LJS] preference verdict:", ev, "preferredCities:", preferredCities);
       removePrefBanner();
-      if (ev.verdict === "neutral") return; // no banner for unknown workplace type
+      // Show banner for good and bad. For neutral (unknown workplace / no cities),
+      // show an informational banner so the user sees the feature is active.
       const banner = document.createElement("div");
       banner.id = PREF_BANNER_ID;
       banner.className = "ljs-pref-banner ljs-pref-banner--" + ev.verdict;
-      const icon = ev.verdict === "good" ? "✓" : "✗";
+      const icon = ev.verdict === "good" ? "✓" : ev.verdict === "bad" ? "✗" : "•";
       banner.textContent = icon + " " + ev.reason;
       // Insert after the toolbar if present, else after the action row.
       const toolbar = document.getElementById(TOOLBAR_ID);
@@ -590,7 +664,7 @@
       const ref = toolbar ? toolbar.nextSibling : null;
       if (ref) anchor.insertBefore(banner, ref);
       else anchor.appendChild(banner);
-    }).catch(() => {});
+    }).catch((e) => console.warn("[LJS] preference banner error", e));
   }
 
   // ---------- Auto-registering seen jobs (detail) ----------
