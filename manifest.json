@@ -23,5 +23,11 @@
       "css": ["content/job-saver.css"],
       "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["options/options.html", "options/options.js", "popup/popup.html"],
+      "matches": ["https://www.linkedin.com/*"]
+    }
   ]
 }

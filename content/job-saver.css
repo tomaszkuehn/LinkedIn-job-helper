@@ -83,6 +83,71 @@
   border-color: #d6d6d6;
 }
 
+/* Options button in toolbar */
+.ljs-options-btn {
+  border: 1px solid #999 !important;
+  background: #f7f9fa !important;
+  color: #555 !important;
+}
+.ljs-options-btn:hover { background: #eef2f5 !important; }
+
+/* Options overlay (inline modal in the page) */
+.ljs-overlay { position: fixed; inset: 0; z-index: 2147483645; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ljs-overlay__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.ljs-overlay__card {
+  position: relative;
+  background: #fff;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.3);
+  padding: 20px 24px 24px;
+  font: 14px/1.5 "Segoe UI", Arial, sans-serif;
+  color: #1f1f1f;
+}
+.ljs-overlay__card--full {
+  max-width: 1400px;
+  width: 96vw;
+  height: 94vh;
+  padding: 0;
+  overflow: hidden;
+}
+.ljs-overlay__iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+  display: block;
+}
+.ljs-overlay__close {
+  position: absolute; top: 10px; right: 14px;
+  border: none; background: rgba(255,255,255,.9); font: 600 18px/1 Arial, sans-serif;
+  cursor: pointer; color: #888; padding: 6px 10px; border-radius: 4px;
+  z-index: 10;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.ljs-overlay__close:hover { background: #fff; color: #333; }
+.ljs-overlay__title { margin: 0 0 16px; font-size: 17px; color: #0a66c2; }
+.ljs-overlay__section { margin-bottom: 14px; }
+.ljs-overlay__label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.ljs-overlay__input {
+  width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px;
+  font: inherit; font-size: 14px;
+}
+.ljs-overlay__input:focus { outline: none; border-color: #0a66c2; }
+.ljs-overlay__hint { font-size: 12px; color: #777; margin: 8px 0 16px; line-height: 1.5; }
+.ljs-overlay__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.ljs-overlay__btn {
+  padding: 8px 18px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 14px;
+  border: 1px solid #ccc; background: #fff;
+}
+.ljs-overlay__btn--primary { background: #0a66c2; color: #fff; border-color: #0a66c2; }
+.ljs-overlay__btn--primary:hover { background: #004182; }
+.ljs-overlay__btn--ghost:hover { background: #f0f0f0; }
+.ljs-overlay__status { font-size: 13px; margin-top: 10px; text-align: right; min-height: 18px; }
+.ljs-overlay__status--ok { color: #057642; }
+.ljs-overlay__status--err { color: #b00020; }
+
 /* Toast */
 .ljs-toast {
   position: fixed;

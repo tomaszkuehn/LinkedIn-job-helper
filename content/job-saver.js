@@ -585,6 +585,30 @@
           for (const k of ACTIONS) {
             actionBtns[k].classList.toggle(ACTION_BTN_CLASS + "--active", k === key && !isAlready);
           }
+          // Auto-save: apply / to-consider / german → save full job to DB if not already saved.
+          // ignored → only register in seen (without description); do NOT save to jobs.
+          if (!isAlready && nextStatus && nextStatus !== "ignored") {
+            if (!btn.classList.contains("ljs-save-btn--saved")) {
+              if (!meta.descriptionHtml) {
+                // Wait briefly for description to load, then save.
+                toast("Saving…");
+                await new Promise(r => setTimeout(r, 600));
+                const root2 = findDetailRoot();
+                if (root2) {
+                  const descEl = root2.querySelector("#job-details, .jobs-description__content, #job-view-description");
+                  if (descEl) {
+                    meta.descriptionHtml = descEl.innerHTML;
+                    meta.descriptionText = descEl.innerText;
+                  }
+                }
+              }
+              if (meta.descriptionHtml) {
+                await handleSave(btn, meta);
+              } else {
+                toast("Description not loaded — click Save manually", "err");
+              }
+            }
+          }
           toast(isAlready ? ("Cleared: " + STATUS_LABELS[key]) : ("Marked: " + STATUS_LABELS[key]), "ok");
         } catch (err) {
           console.error("[LJS] status error", err);
@@ -596,6 +620,19 @@
       actionBtns[key] = ab;
       toolbar.appendChild(ab);
     }
+
+    // OPTIONS button — opens an inline overlay with extension settings.
+    const optsBtn = document.createElement("button");
+    optsBtn.type = "button";
+    optsBtn.className = "ljs-action-btn ljs-options-btn";
+    optsBtn.textContent = "⚙ Options";
+    optsBtn.title = "Open extension options overlay";
+    optsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openOptionsOverlay();
+    });
+    toolbar.appendChild(optsBtn);
 
     // Reflect existing status (async, may resolve after append).
     const meta0 = scrapeFromDetail(root, jobId);
@@ -665,6 +702,35 @@
       if (ref) anchor.insertBefore(banner, ref);
       else anchor.appendChild(banner);
     }).catch((e) => console.warn("[LJS] preference banner error", e));
+  }
+
+  // ---------- Options overlay (full options page in an iframe) ----------
+  const OVERLAY_ID = "ljs-options-overlay";
+
+  function closeOptionsOverlay() {
+    const ov = document.getElementById(OVERLAY_ID);
+    if (ov) ov.remove();
+  }
+
+  function openOptionsOverlay() {
+    closeOptionsOverlay();
+    const overlay = document.createElement("div");
+    overlay.id = OVERLAY_ID;
+    overlay.className = "ljs-overlay";
+    overlay.innerHTML = `
+      <div class="ljs-overlay__backdrop"></div>
+      <div class="ljs-overlay__card ljs-overlay__card--full">
+        <button class="ljs-overlay__close" title="Close (Esc)">✕</button>
+        <iframe class="ljs-overlay__iframe" src="${chrome.runtime.getURL("options/options.html")}" title="LinkedIn Job Saver — Options"></iframe>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => closeOptionsOverlay();
+    overlay.querySelector(".ljs-overlay__close").addEventListener("click", close);
+    overlay.querySelector(".ljs-overlay__backdrop").addEventListener("click", close);
+    const onKey = (e) => { if (e.key === "Escape") { close(); document.removeEventListener("keydown", onKey); } };
+    document.addEventListener("keydown", onKey);
   }
 
   // ---------- Auto-registering seen jobs (detail) ----------

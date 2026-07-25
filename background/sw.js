@@ -194,6 +194,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     getUsage().then(bytes => sendResponse({ ok: true, bytes }));
     return true;
   }
+  if (msg.type === "open-options") {
+    chrome.runtime.openOptionsPage();
+    sendResponse({ ok: true });
+    return false;
+  }
 });
 
 chrome.runtime.onInstalled.addListener(() => {

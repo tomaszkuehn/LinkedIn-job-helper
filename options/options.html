@@ -4,73 +4,75 @@
   <meta charset="utf-8" />
   <title>LinkedIn Job Saver — Options</title>
   <style>
-    body { font: 14px/1.5 "Segoe UI", Arial, sans-serif; margin: 24px auto; max-width: 1100px; color: #1f1f1f; }
-    h1 { margin-top: 0; }
-    h2 { margin-top: 24px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-    button { padding: 8px 14px; border: 1px solid #0a66c2; background: #0a66c2; color: #fff; border-radius: 4px; cursor: pointer; font: inherit; }
+    body { font: 15px/1.6 "Segoe UI", Arial, sans-serif; margin: 0; padding: 32px 40px 48px; color: #1f1f1f; background: #fff; }
+    h1 { margin-top: 0; font-size: 22px; }
+    h2 { margin-top: 32px; margin-bottom: 8px; border-bottom: 1px solid #e0e6eb; padding-bottom: 6px; font-size: 18px; }
+    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    .toolbar label { font-weight: 600; white-space: nowrap; }
+    button { padding: 10px 18px; border: 1px solid #0a66c2; background: #0a66c2; color: #fff; border-radius: 4px; cursor: pointer; font: inherit; font-size: 14px; }
     button:hover { background: #004182; }
     button.danger { background: #fff; color: #b00020; border-color: #b00020; }
-    button.danger:hover { background: #fee; }
+    button.danger:hover { background: #fde7e9; }
     button.ghost { background: #fff; color: #0a66c2; }
     button.ghost:hover { background: #e8f1fb; }
     /* Compact action buttons in tables */
-    td button { padding: 4px 10px; font-size: 12px; margin-right: 4px; }
+    td button { padding: 6px 12px; font-size: 13px; margin-right: 6px; }
     td button.ghost { border: 1px solid #0a66c2; }
     td button.danger { border: 1px solid #b00020; }
-    input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 200px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
-    th { background: #f7f9fa; position: sticky; top: 0; }
-    .desc { max-width: 380px; max-height: 120px; overflow: auto; white-space: pre-wrap; font-size: 12px; background: #f7f9fa; padding: 6px; border-radius: 4px; }
-    .count { color: #666; }
-    .ids { font-size: 11px; color: #999; }
+    input { padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 200px; font: inherit; font-size: 14px; }
+    select { padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 14px; }
+    th { background: #f7f9fa; position: sticky; top: 0; font-size: 13px; }
+    .desc { max-width: 420px; max-height: 140px; overflow: auto; white-space: pre-wrap; font-size: 13px; background: #f7f9fa; padding: 8px 10px; border-radius: 4px; line-height: 1.5; }
+    .count { color: #666; font-size: 14px; margin: 4px 0 12px; }
+    .ids { font-size: 12px; color: #999; }
     .repost { color: #b00020; font-weight: 600; }
 
     /* Preview modal */
-    .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; }
+    .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 40px 24px; }
     .modal[hidden] { display: none; }
     .modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
     .modal__card {
       position: relative;
       background: #fff;
-      max-width: 820px;
+      max-width: 920px;
       width: 100%;
-      max-height: calc(100vh - 64px);
+      max-height: calc(100vh - 80px);
       overflow: auto;
       border-radius: 8px;
       box-shadow: 0 12px 40px rgba(0,0,0,.3);
-      padding: 24px 28px 32px;
+      padding: 36px 40px 44px;
     }
     .modal__close {
-      position: absolute; top: 12px; right: 14px;
-      border: none; background: transparent; font: 600 18px/1 Arial, sans-serif;
-      cursor: pointer; color: #888; padding: 4px 8px; border-radius: 4px;
+      position: absolute; top: 16px; right: 18px;
+      border: none; background: transparent; font: 600 22px/1 Arial, sans-serif;
+      cursor: pointer; color: #888; padding: 6px 10px; border-radius: 4px;
     }
     .modal__close:hover { background: #f0f0f0; color: #333; }
-    .pv-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; color: #0a66c2; }
-    .pv-company { font-size: 15px; color: #555; margin: 0 0 6px; }
-    .pv-meta { display: flex; gap: 14px; flex-wrap: wrap; color: #777; font-size: 13px; margin-bottom: 8px; }
+    .pv-title { font-size: 24px; font-weight: 700; margin: 0 0 8px; color: #0a66c2; }
+    .pv-company { font-size: 17px; color: #555; margin: 0 0 10px; }
+    .pv-meta { display: flex; gap: 18px; flex-wrap: wrap; color: #777; font-size: 14px; margin-bottom: 12px; }
     .pv-meta .pv-status { font-weight: 600; }
     .pv-status--apply { color: #057642; }
     .pv-status--to-consider { color: #915907; }
     .pv-status--german { color: #0a66c2; }
     .pv-status--ignored { color: #6b6b6b; }
-    .pv-url { font-size: 12px; }
+    .pv-url { font-size: 13px; }
     .pv-url a { color: #0a66c2; }
-    .pv-toolbar { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
-    .pv-toolbar button { padding: 6px 12px; border: 1px solid #0a66c2; background: #0a66c2; color: #fff; border-radius: 4px; cursor: pointer; font: inherit; }
+    .pv-toolbar { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
+    .pv-toolbar button { padding: 10px 18px; border: 1px solid #0a66c2; background: #0a66c2; color: #fff; border-radius: 4px; cursor: pointer; font: inherit; font-size: 14px; }
     .pv-toolbar button.ghost { background: #fff; color: #0a66c2; }
     .pv-toolbar button:hover { background: #004182; color: #fff; }
     .pv-toolbar button.ghost:hover { background: #eef2f5; color: #0a66c2; }
-    .pv-desc { margin-top: 16px; line-height: 1.6; color: #1f1f1f; }
-    .pv-desc h1, .pv-desc h2, .pv-desc h3 { color: #1f1f1f; margin-top: 18px; }
-    .pv-desc p { margin: 10px 0; }
-    .pv-desc ul, .pv-desc ol { margin: 10px 0; padding-left: 22px; }
-    .pv-desc li { margin: 4px 0; }
+    .pv-desc { margin-top: 24px; line-height: 1.8; color: #1f1f1f; font-size: 15px; }
+    .pv-desc h1, .pv-desc h2, .pv-desc h3 { color: #1f1f1f; margin-top: 24px; }
+    .pv-desc p { margin: 14px 0; }
+    .pv-desc ul, .pv-desc ol { margin: 14px 0; padding-left: 28px; }
+    .pv-desc li { margin: 6px 0; }
     .pv-desc strong { color: #000; }
     .pv-desc br { display: block; content: ""; margin-top: 6px; }
-    .pv-empty { color: #999; font-style: italic; padding: 20px 0; }
+    .pv-empty { color: #999; font-style: italic; padding: 24px 0; }
   </style>
 </head>
 <body>
@@ -78,14 +80,14 @@
 
   <h2>Preferences</h2>
   <div class="toolbar">
-    <label for="preferred-city-1" style="font-weight:600">Preferred city 1:</label>
-    <input id="preferred-city-1" type="text" placeholder="e.g. Hamburg" style="max-width:200px" />
-    <label for="preferred-city-2" style="font-weight:600">Preferred city 2:</label>
-    <input id="preferred-city-2" type="text" placeholder="e.g. Berlin" style="max-width:200px" />
+    <label for="preferred-city-1">Preferred city 1:</label>
+    <input id="preferred-city-1" type="text" placeholder="e.g. Hamburg" style="max-width:240px" />
+    <label for="preferred-city-2">Preferred city 2:</label>
+    <input id="preferred-city-2" type="text" placeholder="e.g. Berlin" style="max-width:240px" />
     <button id="save-cities">Save cities</button>
-    <span id="cities-saved" style="color:#057642;font-size:12px"></span>
+    <span id="cities-saved" style="color:#057642;font-size:13px"></span>
   </div>
-  <p style="font-size:12px;color:#777;margin:4px 0 16px">Remote jobs are always acceptable. On-site / hybrid jobs must be in one of these cities to get a green banner in the LinkedIn detail panel.</p>
+  <p style="font-size:13px;color:#777;margin:4px 0 24px;line-height:1.5">Remote jobs are always acceptable. On-site / hybrid jobs must be in one of these cities to get a green banner in the LinkedIn detail panel; otherwise the banner is red.</p>
 
   <h2>Saved jobs</h2>
   <p class="count" id="saved-count"></p>
