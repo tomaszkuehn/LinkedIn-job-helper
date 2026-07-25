@@ -14,9 +14,10 @@ const DEFAULT_SETTINGS = {
   autoBackup: true,
   backupMode: "overwrite",      // "overwrite" | "timestamp"
   seenRetentionDays: 90,         // 0 = wyłącz auto-prune
-  homeCity: "",                   // city name used as the origin for distance checks
-  maxDistanceKm: 30,              // max acceptable haversine distance from homeCity
-  preferredCities: [],            // deprecated — kept for backward compat / migration
+  homeAddress: "",                // free-text address (street / postcode / city) geocoded via Nominatim
+  homeLat: null,                  // cached geocode result (latitude)
+  homeLon: null,                  // cached geocode result (longitude)
+  maxDistanceKm: 30,              // max acceptable haversine distance from home
   lastBackupAt: null,
   lastBackupFile: null,
   lastBackupCount: 0,

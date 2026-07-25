@@ -167,35 +167,32 @@
     return CITY_COORDS[k] || null;
   }
 
-  function distanceFromHome(city, homeCity) {
-    const c = cityCoords(city);
-    const h = cityCoords(homeCity);
-    if (!c || !h) return null;
-    return haversineKm(c, h);
-  }
-
   // Returns { verdict, reason, distanceKm }
-  function evaluatePreference(workplaceType, city, homeCity, maxDistanceKm) {
+  // homeCoords: [lat, lon] | null  — geocoded home point (stored in settings)
+  function evaluatePreference(workplaceType, city, homeCoords, maxDistanceKm) {
     if (workplaceType === "remote") {
       return { verdict: "good", reason: "Remote — always acceptable", distanceKm: null };
     }
     if (!workplaceType) {
       return { verdict: "neutral", reason: "Workplace type unknown", distanceKm: null };
     }
-    const home = String(homeCity || "").trim();
-    if (!home) {
-      return { verdict: "neutral", reason: workplaceType + " — set your home city in Options to enable distance check", distanceKm: null };
+    if (!homeCoords || !Array.isArray(homeCoords) || homeCoords.length !== 2) {
+      return { verdict: "neutral", reason: workplaceType + " — set your home address in Options to enable distance check", distanceKm: null };
     }
     const max = Number.isFinite(maxDistanceKm) && maxDistanceKm > 0 ? maxDistanceKm : 30;
     const where = city ? city : "unknown city";
-    const d = distanceFromHome(city, home);
+    const c = cityCoords(city);
+    if (!c) {
+      return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure (city not in database)", distanceKm: null };
+    }
+    const d = haversineKm(c, homeCoords);
     if (d === null) {
-      return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure distance to " + home + " (city not in database)", distanceKm: null };
+      return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure distance", distanceKm: null };
     }
     if (d <= max) {
-      return { verdict: "good", reason: workplaceType + " in " + where + " — " + d + " km from " + home + " (≤ " + max + " km)", distanceKm: d };
+      return { verdict: "good", reason: workplaceType + " in " + where + " — " + d + " km from home (≤ " + max + " km)", distanceKm: d };
     }
-    return { verdict: "bad", reason: workplaceType + " in " + where + " — " + d + " km from " + home + " (> " + max + " km)", distanceKm: d };
+    return { verdict: "bad", reason: workplaceType + " in " + where + " — " + d + " km from home (> " + max + " km)", distanceKm: d };
   }
 
   async function getHomeLocation() {
@@ -203,9 +200,12 @@
       try {
         chrome.storage.local.get(KEY_SETTINGS, (res) => {
           const s = res[KEY_SETTINGS] || {};
-          resolve({ homeCity: s.homeCity || "", maxDistanceKm: Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30 });
+          const lat = Number.isFinite(s.homeLat) ? s.homeLat : null;
+          const lon = Number.isFinite(s.homeLon) ? s.homeLon : null;
+          const homeCoords = (lat !== null && lon !== null) ? [lat, lon] : null;
+          resolve({ homeCoords, maxDistanceKm: Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30 });
         });
-      } catch (e) { resolve({ homeCity: "", maxDistanceKm: 30 }); }
+      } catch (e) { resolve({ homeCoords: null, maxDistanceKm: 30 }); }
     });
   }
 
@@ -745,9 +745,9 @@
         if (injectedForJobId === String(jobId)) refreshPreferenceBanner(root, jobId);
       }, 1500);
     }
-    getHomeLocation().then(({ homeCity, maxDistanceKm }) => {
-      const ev = evaluatePreference(meta.workplaceType, meta.city, homeCity, maxDistanceKm);
-      console.log("[LJS] preference verdict:", ev, "homeCity:", homeCity, "maxDistanceKm:", maxDistanceKm);
+    getHomeLocation().then(({ homeCoords, maxDistanceKm }) => {
+      const ev = evaluatePreference(meta.workplaceType, meta.city, homeCoords, maxDistanceKm);
+      console.log("[LJS] preference verdict:", ev, "homeCoords:", homeCoords, "maxDistanceKm:", maxDistanceKm);
       removePrefBanner();
       // Show banner for good and bad. For neutral (unknown workplace / no home city),
       // show an informational banner so the user sees the feature is active.

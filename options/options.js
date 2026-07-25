@@ -2,6 +2,7 @@ import {
   getAllJobs, deleteJob, saveJob, clearJobs,
   getAllSeen, deleteSeen, saveSeen, clearSeen,
   setJobStatus, setSeenStatus,
+  geocodeAddress,
 } from "../lib/db.js";
 
 let jobs = [];
@@ -27,22 +28,39 @@ function setSettings(patch) {
   });
 }
 
-const homeCityEl = document.getElementById("home-city");
+const homeAddressEl = document.getElementById("home-address");
 const maxDistanceEl = document.getElementById("max-distance");
 const saveCitiesBtn = document.getElementById("save-cities");
 const citiesSavedEl = document.getElementById("cities-saved");
 
 async function loadCities() {
   const s = await getSettings();
-  homeCityEl.value = s.homeCity || "";
+  homeAddressEl.value = s.homeAddress || "";
   maxDistanceEl.value = Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30;
 }
 saveCitiesBtn.addEventListener("click", async () => {
-  const homeCity = homeCityEl.value.trim();
+  const homeAddress = homeAddressEl.value.trim();
   const maxDistanceKm = Math.max(0, parseInt(maxDistanceEl.value, 10) || 30);
-  await setSettings({ homeCity, maxDistanceKm });
-  citiesSavedEl.textContent = "Saved";
-  setTimeout(() => (citiesSavedEl.textContent = ""), 2000);
+  saveCitiesBtn.disabled = true;
+  citiesSavedEl.style.color = "#777";
+  citiesSavedEl.textContent = homeAddress ? "Geocoding…" : "Saving…";
+  let homeLat = null, homeLon = null;
+  if (homeAddress) {
+    const geo = await geocodeAddress(homeAddress);
+    if (!geo) {
+      citiesSavedEl.style.color = "#b00020";
+      citiesSavedEl.textContent = "Geocoding failed — check the address";
+      saveCitiesBtn.disabled = false;
+      return;
+    }
+    homeLat = geo.lat;
+    homeLon = geo.lon;
+  }
+  await setSettings({ homeAddress, homeLat, homeLon, maxDistanceKm });
+  citiesSavedEl.style.color = "#057642";
+  citiesSavedEl.textContent = "Saved (" + (homeLat !== null ? homeLat.toFixed(4) + ", " + homeLon.toFixed(4) : "no coords") + ")";
+  saveCitiesBtn.disabled = false;
+  setTimeout(() => (citiesSavedEl.textContent = ""), 4000);
 });
 loadCities();
 
