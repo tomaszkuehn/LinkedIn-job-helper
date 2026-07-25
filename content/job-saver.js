@@ -318,7 +318,7 @@
           cardFingerprint: cfp,
           title: meta.title,
           company: meta.company,
-          descriptionText: meta.descriptionText.slice(0, 2000),
+          descriptionText: meta.descriptionText,
           jobIds: [meta.jobId],
           firstSeenAt: now,
           lastSeenAt: now,
