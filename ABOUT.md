@@ -8,10 +8,11 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 - **Workplace type & city detection** — extracts `workplaceType` (remote / hybrid / onsite) and `city` from:
   1. Location metadata (already scraped) — e.g. "Hamburg, Hamburg, Germany (Hybrid)" → workplaceType=hybrid, city=Hamburg
   2. Description text fallback (regex over "Location:" / "Workplace:" sections and phrases like "fully remote", "work from home", "on-site")
-- **Preferred cities + preference banner** — set up to 2 preferred cities in Options → Preferences. The content script shows a banner below the action toolbar in the LinkedIn detail panel:
+- **Preferred cities + preference banner** — set a comma-separated list of preferred cities in Options → Preferences. The content script shows a banner below the action toolbar in the LinkedIn detail panel:
   - Green ✓ — remote (always acceptable), or onsite/hybrid in one of your preferred cities
   - Red ✗ — onsite/hybrid not in a preferred city
-  - No banner — workplace type unknown or no preferred cities set
+  - Neutral • — workplace type unknown or no preferred cities set
+- **Distance from home (optional)** — set a home address (street, postcode, or city) in Options → Preferences; it's geocoded once via OpenStreetMap Nominatim and the lat/lon is cached locally. When the job location contains a postcode or street address (precise enough to geocode), the haversine distance to home is appended to the banner, e.g. `On-site in Hamburg — matches your preferred cities (12 km from home, ≤ 30 km)`. If only a city is detected (no postcode/street), no distance is shown.
 - **Repost detection** — identifies already-seen jobs even when re-posted with a new `jobId`, using two content fingerprints:
   - `cardFingerprint` (loose): title + company — for fast badge matching on the list view and for status matching (stable whether or not the description has loaded)
   - `detailFingerprint` (strict): title + company + description text — for reliable repost detection
@@ -44,7 +45,7 @@ Data is held entirely in `chrome.storage.local` (the extension's own storage, no
 Keys:
 - `ljs_jobs` — map of `jobId` → saved job (includes `status`, `statusSetAt`)
 - `ljs_seen` — map of `fingerprint` → seen-job entry (includes `status`, `statusSetAt`, full `descriptionText`/`descriptionHtml` unless status is `ignored`)
-- `ljs_settings` — backup settings, retention window, last-backup and last-prune metadata
+- `ljs_settings` — backup settings, retention window, preferred cities, home address + geocoded coords, max distance, last-backup and last-prune metadata
 
 Data does **not** sync between devices. Use the backup file to transfer or restore.
 
@@ -89,9 +90,10 @@ content/job-saver.js      content script (self-contained, no ES imports):
                           + seen badges + repost banner
 content/job-saver.css     styles for injected toolbar, action buttons, badges, toast, banner
 lib/db.js                 storage backend (chrome.storage.local) + status helpers
-                          (setJobStatus, setSeenStatus, ensureSeen, getAllSeenByStatus, …)
-                          + analyzeLocation (workplace type + city detection)
-                          used by popup/options
+                           (setJobStatus, setSeenStatus, ensureSeen, getAllSeenByStatus, …)
+                           + analyzeLocation (workplace type + city detection)
+                           + geocodeAddress (Nominatim) + hasPreciseLocation + evaluatePreference
+                           used by popup/options
 lib/scraper.js            scraper helpers (legacy, popup/options)
 popup/popup.{html,css,js} toolbar popup: Saved / Seen / Backup tabs + inline confirm modal
 options/options.{html,js} full-page options: tables with status column + filter, preview modal,
@@ -113,8 +115,9 @@ Content scripts in MV3 cannot use ES `import`, so `content/job-saver.js` is self
 - `downloads` — for auto-backup to file
 - `activeTab`, `scripting` — reserved for future use
 - `host_permissions: https://www.linkedin.com/*` — content script injection
+- `host_permissions: https://nominatim.openstreetmap.org/*` — geocoding the home address (one-shot on save in Options) and geocoding precise job locations (cached in-memory)
 
-No remote permissions. No data leaves the browser.
+The home address is sent to Nominatim (OpenStreetMap) only when you click **Save** in Options. Precise job locations (those containing a postcode or street) are geocoded once per session and cached in-memory. No tracking, no API key, no data stored on any server.
 
 ## Limitations
 
@@ -122,6 +125,7 @@ No remote permissions. No data leaves the browser.
 - Fingerprint matching is heuristic: minor edits to the job description by the poster produce a different `detailFingerprint` and won't be flagged as a repost. `cardFingerprint` (title + company only) catches re-posts under a new jobId even with edited descriptions, at the cost of occasional false positives for genuinely different jobs with the same title and company.
 - Status is matched by `cardFingerprint` (title + company). Two genuinely different jobs with identical title + company share a status. In practice this is rare and the trade-off is acceptable (status is per-job-listing in spirit, but the matcher is intentionally loose so status survives a re-post with edited description).
 - Workplace/city detection is heuristic. The location-metadata path is reliable when LinkedIn exposes it; the description-text fallback may produce false positives on generic phrases (e.g. "remote team" → remote). City extraction drops trailing country segments and known country names; single-token locations that aren't recognized countries are treated as cities.
+- Distance is haversine (straight-line), not a driving/transit route. Geocoding is performed by OpenStreetMap Nominatim (free, no API key) and is rate-limited (1 request per address, cached). If Nominatim is unreachable, the banner falls back to green/red based on the preferred-cities list alone, without distance.
 
 ## License
 
