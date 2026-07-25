@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>LinkedIn Job Saver</title>
@@ -8,47 +8,47 @@
 <body>
   <header>
     <h1>LinkedIn Job Saver</h1>
-    <div class="count" id="count">0 ofert</div>
+    <div class="count" id="count">0 jobs</div>
   </header>
 
   <div class="tabs">
-    <button class="tab tab--active" data-tab="saved">Zapisane (<span id="saved-n">0</span>)</button>
-    <button class="tab" data-tab="seen">Widziane (<span id="seen-n">0</span>)</button>
+    <button class="tab tab--active" data-tab="saved">Saved (<span id="saved-n">0</span>)</button>
+    <button class="tab" data-tab="seen">Seen (<span id="seen-n">0</span>)</button>
     <button class="tab" data-tab="backup">Backup</button>
   </div>
 
   <div class="toolbar" id="toolbar-list">
-    <input id="search" type="search" placeholder="Szukaj po tytule / firmie…" />
-    <button id="export-json">Eksport JSON</button>
-    <button id="export-csv">Eksport CSV</button>
-    <button id="open-options">Opcje</button>
+    <input id="search" type="search" placeholder="Search by title / company…" />
+    <button id="export-json">Export JSON</button>
+    <button id="export-csv">Export CSV</button>
+    <button id="open-options">Options</button>
   </div>
 
   <ul id="list" class="list"></ul>
   <p id="empty" class="empty" hidden></p>
 
-  <!-- Panel backup -->
+  <!-- Backup panel -->
   <div id="panel-backup" class="panel" hidden>
     <div class="backup-row">
       <label class="switch">
         <input type="checkbox" id="auto-backup" />
-        <span>Auto-backup po każdej zmianie</span>
+        <span>Auto-backup after every change</span>
       </label>
     </div>
     <div class="backup-row">
-      <label>Tryb pliku:</label>
+      <label>File mode:</label>
       <select id="backup-mode">
-        <option value="overwrite">Nadpisuj „linkedin-jobs-latest.json”</option>
-        <option value="timestamp">Kolejne pliki z timestampem</option>
+        <option value="overwrite">Overwrite "linkedin-jobs-latest.json"</option>
+        <option value="timestamp">Sequential timestamped files</option>
       </select>
     </div>
-    <div class="backup-status" id="backup-status">Ładowanie…</div>
+    <div class="backup-status" id="backup-status">Loading…</div>
     <div class="backup-actions">
-      <button id="backup-now">Zrób backup teraz</button>
-      <button id="import-btn" class="ghost">Wczytaj z pliku</button>
+      <button id="backup-now">Back up now</button>
+      <button id="import-btn" class="ghost">Load from file</button>
       <input id="import-file" type="file" accept="application/json" hidden />
     </div>
-    <p class="hint">Pliki lądują w folderze <code>Pobrane/linkedin-jobs-backup/</code>. Użyj „Wczytaj z pliku”, by przywrócić bazę (np. po reinstallu).</p>
+    <p class="hint">Files are saved to <code>Downloads/linkedin-jobs-backup/</code>. Use "Load from file" to restore the database (e.g. after reinstall).</p>
   </div>
 
   <template id="row-tpl">
@@ -63,8 +63,8 @@
       </div>
       <div class="row__desc"></div>
       <div class="row__actions">
-        <button class="row__copy">Kopiuj treść</button>
-        <button class="row__delete">Usuń</button>
+        <button class="row__copy">Copy content</button>
+        <button class="row__delete">Delete</button>
       </div>
     </li>
   </template>
@@ -83,8 +83,8 @@
       <div class="row__ids"></div>
       <div class="row__desc"></div>
       <div class="row__actions">
-        <button class="row__copy-seen">Kopiuj treść</button>
-        <button class="row__forget">Zapomnij</button>
+        <button class="row__copy-seen">Copy content</button>
+        <button class="row__forget">Forget</button>
       </div>
     </li>
   </template>

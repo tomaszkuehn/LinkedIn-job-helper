@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>LinkedIn Job Saver — opcje</title>
+  <title>LinkedIn Job Saver — Options</title>
   <style>
     body { font: 14px/1.5 "Segoe UI", Arial, sans-serif; margin: 24px auto; max-width: 1100px; color: #1f1f1f; }
     h1 { margin-top: 0; }
@@ -26,33 +26,33 @@
 <body>
   <h1>LinkedIn Job Saver</h1>
 
-  <h2>Zapisane oferty</h2>
+  <h2>Saved jobs</h2>
   <p class="count" id="saved-count"></p>
   <div class="toolbar">
-    <input id="search-saved" type="search" placeholder="Szukaj w zapisanych…" />
-    <button id="export-json">Eksport JSON (zapisane + widziane)</button>
-    <button id="export-csv">Eksport CSV (zapisane)</button>
+    <input id="search-saved" type="search" placeholder="Search saved…" />
+    <button id="export-json">Export JSON (saved + seen)</button>
+    <button id="export-csv">Export CSV (saved)</button>
     <button id="import-json" class="ghost">Import JSON</button>
     <input id="import-file" type="file" accept="application/json" hidden />
-    <button id="clear-saved" class="danger">Wyczyść zapisane</button>
+    <button id="clear-saved" class="danger">Clear saved</button>
   </div>
   <table id="table-saved">
     <thead>
-      <tr><th>Tytuł</th><th>Firma</th><th>Lokalizacja</th><th>Zapisano</th><th>Opis (fragment)</th><th></th></tr>
+      <tr><th>Title</th><th>Company</th><th>Location</th><th>Saved</th><th>Description (excerpt)</th><th></th></tr>
     </thead>
     <tbody id="rows-saved"></tbody>
   </table>
 
-  <h2>Widziane oferty <span style="font-weight:normal;font-size:12px;color:#777">(auto-rejestrowane, detekcja ponownej publikacji)</span></h2>
+  <h2>Seen jobs <span style="font-weight:normal;font-size:12px;color:#777">(auto-registered, repost detection)</span></h2>
   <p class="count" id="seen-count"></p>
   <div class="toolbar">
-    <input id="search-seen" type="search" placeholder="Szukaj w widzianych…" />
-    <button id="export-seen" class="ghost">Eksport widzianych (CSV)</button>
-    <button id="clear-seen" class="danger">Wyczyść widziane</button>
+    <input id="search-seen" type="search" placeholder="Search seen…" />
+    <button id="export-seen" class="ghost">Export seen (CSV)</button>
+    <button id="clear-seen" class="danger">Clear seen</button>
   </div>
   <table id="table-seen">
     <thead>
-      <tr><th>Tytuł</th><th>Firma</th><th>Widziana</th><th>Pierwszy raz</th><th>Ostatnio</th><th>jobIds</th><th>Opis (fragment)</th><th></th></tr>
+      <tr><th>Title</th><th>Company</th><th>Seen</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Description (excerpt)</th><th></th></tr>
     </thead>
     <tbody id="rows-seen"></tbody>
   </table>

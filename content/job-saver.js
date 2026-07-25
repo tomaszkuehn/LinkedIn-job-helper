@@ -1,5 +1,5 @@
-// Content script — zapisywanie ofert + identyfikacja już widzianych
-// (nawet po ponownej publikacji z nowym jobId) na podstawie odcisku palca treści.
+// Content script — saving jobs + identification of already-seen jobs
+// (even when re-posted with a new jobId) based on content fingerprints.
 // Self-contained (MV3 content scripts nie wspierają ES import).
 
 (function () {
@@ -156,7 +156,7 @@
     };
   }
 
-  // Scrapowanie metadanych z karty na liście (do badge'a "widziana").
+  // Scraping card metadata from the list (for the "seen" badge).
   function scrapeFromCard(card) {
     const jobId = card.getAttribute("data-job-id");
     if (!jobId) return null;
@@ -220,13 +220,13 @@
       };
       await saveJob(job);
       btn.classList.add("ljs-save-btn--saved");
-      btn.textContent = "✓ Zapisano";
-      toast("Zapisano: " + (job.title || meta.jobId), "ok");
+      btn.textContent = "✓ Saved";
+      toast("Saved: " + (job.title || meta.jobId), "ok");
     } catch (e) {
       console.error("[LJS] save error", e);
       btn.classList.add("ljs-save-btn--err");
-      btn.textContent = "Błąd!";
-      toast("Błąd zapisu: " + (e.message || e), "err");
+      btn.textContent = "Error!";
+      toast("Save error: " + (e.message || e), "err");
       setTimeout(() => {
         btn.classList.remove("ljs-save-btn--err");
         btn.textContent = original;
@@ -266,13 +266,13 @@
     btn.id = BTN_ID;
     btn.className = "ljs-save-btn";
     btn.type = "button";
-    btn.textContent = "💾 Zapisz do bazy";
-    btn.title = "Zapisz tę ofertę do lokalnej bazy (LinkedIn Job Saver)";
+    btn.textContent = "💾 Save to DB";
+    btn.title = "Save this job to the local database (LinkedIn Job Saver)";
 
     isAlreadySaved(jobId).then(saved => {
       if (saved) {
         btn.classList.add("ljs-save-btn--saved");
-        btn.textContent = "✓ Zapisano";
+        btn.textContent = "✓ Saved";
       }
     });
 
@@ -280,12 +280,12 @@
       e.preventDefault();
       e.stopPropagation();
       console.log("[LJS] click save, jobId=", jobId);
-      if (btn.classList.contains("ljs-save-btn--saved")) { toast("Już zapisano wcześniej"); return; }
+      if (btn.classList.contains("ljs-save-btn--saved")) { toast("Already saved earlier"); return; }
       const meta = scrapeFromDetail(root, jobId);
       console.log("[LJS] scraped meta:", { title: meta.title, company: meta.company, descLen: meta.descriptionText.length });
       if (!meta.descriptionHtml) {
-        console.warn("[LJS] brak opisu — próbuję poczekać");
-        toast("Opis jeszcze się ładuje — kliknij za sekundę", "err");
+        console.warn("[LJS] no description yet — wait");
+        toast("Description still loading — try in a second", "err");
         return;
       }
       await handleSave(btn, meta);
@@ -294,7 +294,7 @@
     host.appendChild(btn);
   }
 
-  // ---------- Auto-rejestrowanie widzianych ofert (detal) ----------
+  // ---------- Auto-registering seen jobs (detail) ----------
   let lastSeenFp = null;
   let seenTimer = null;
 
@@ -325,7 +325,7 @@
           seenCount: 1,
         });
       }
-      // Po zarejestrowaniu pokaż banner jeśli ponowna publikacja.
+      // After registering, show banner if repost.
       showRepostBannerIfApplicable(fp, meta);
     } catch (e) {
       console.warn("[LJS] recordSeen error", e);
@@ -337,18 +337,18 @@
     seenTimer = setTimeout(() => recordSeen(meta), 2000);
   }
 
-  // ---------- Banner: ponowna publikacja ----------
+  // ---------- Banner: repost ----------
   function showRepostBannerIfApplicable(fp, meta) {
     getSeenByFp(fp).then(existing => {
       if (!existing) return;
-      // Pokaż banner tylko jeśli ta sama treść była widziana pod INNYM jobId wcześniej.
+      // Show banner only if same content was seen under a DIFFERENT jobId before.
       const otherIds = existing.jobIds.filter(id => id !== meta.jobId);
       if (otherIds.length === 0) return;
-      const firstDate = new Date(existing.firstSeenAt).toLocaleDateString("pl-PL");
+      const firstDate = new Date(existing.firstSeenAt).toLocaleDateString("en-US");
       showDetailBanner(
-        "👁 Ta oferta była już widziana " + firstDate +
-        " (pod jobId " + otherIds.join(", ") + "). " +
-        "To prawdopodobnie ponowna publikacja (seenCount: " + existing.seenCount + ").",
+        "👁 This job was already seen on " + firstDate +
+        " (under jobId " + otherIds.join(", ") + "). " +
+        "This is likely a repost (seenCount: " + existing.seenCount + ").",
         "repost"
       );
     }).catch(() => {});
@@ -371,7 +371,7 @@
     if (el) el.style.display = "none";
   }
 
-  // Sprawdź czy aktualny detal pasuje do już widzianego (przy wstrzyknięciu przycisku).
+  // Check whether the current detail matches an already-seen job (on button injection).
   async function checkDetailSeen(root, jobId) {
     const meta = scrapeFromDetail(root, jobId);
     if (!meta.descriptionText || meta.descriptionText.length < 50) return;
@@ -379,11 +379,11 @@
       const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
       const existing = await getSeenByFp(fp);
       if (existing && existing.jobIds.some(id => id !== jobId)) {
-        const firstDate = new Date(existing.firstSeenAt).toLocaleDateString("pl-PL");
+        const firstDate = new Date(existing.firstSeenAt).toLocaleDateString("en-US");
         showDetailBanner(
-          "👁 Ta oferta była już widziana " + firstDate +
-          " (pod jobId " + existing.jobIds.filter(id => id !== jobId).join(", ") + "). " +
-          "Ponowna publikacja (seenCount: " + existing.seenCount + ").",
+          "👁 This job was already seen on " + firstDate +
+          " (under jobId " + existing.jobIds.filter(id => id !== jobId).join(", ") + "). " +
+          "Repost (seenCount: " + existing.seenCount + ").",
           "repost"
         );
       } else {
@@ -416,7 +416,7 @@
           // Weź najwcześniejsze firstSeenAt.
           const earliest = matches.reduce((a, b) => (a.firstSeenAt < b.firstSeenAt ? a : b));
           const days = Math.round((Date.now() - new Date(earliest.firstSeenAt).getTime()) / 86400000);
-          const when = days < 1 ? "dzisiaj" : days < 2 ? "wczoraj" : days + " dni temu";
+          const when = days < 1 ? "today" : days < 2 ? "yesterday" : days + " days ago";
           const repost = matches.some(m => m.jobIds.length > 1 || (m.jobIds[0] && m.jobIds[0] !== meta.jobId));
           addBadgeToCard(card, when, repost);
         }
@@ -436,7 +436,7 @@
       card;
     const badge = document.createElement("span");
     badge.className = "ljs-seen-badge" + (repost ? " ljs-seen-badge--repost" : "");
-    badge.title = repost ? "Ta oferta była już widziana pod innym jobId — ponowna publikacja." : "Ta oferta była już widziana.";
+    badge.title = repost ? "This job was already seen under a different jobId — repost." : "This job was already seen.";
     badge.textContent = (repost ? "🔁 " : "👁 ") + when;
     host.appendChild(badge);
   }

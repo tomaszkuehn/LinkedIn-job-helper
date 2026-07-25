@@ -23,9 +23,9 @@ async function refresh() {
   savedNEl.textContent = jobs.length;
   seenNEl.textContent = seen.length;
   countEl.textContent = activeTab === "saved"
-    ? `${jobs.length} zapisanych`
+    ? `${jobs.length} saved`
     : activeTab === "seen"
-      ? `${seen.length} widzianych`
+      ? `${seen.length} seen`
       : "Backup";
   render();
 }
@@ -52,10 +52,10 @@ function render() {
   if (filtered.length === 0) {
     emptyEl.hidden = false;
     emptyEl.textContent = q
-      ? "Brak wyników dla tego wyszukiwania."
+      ? "No results match your search."
       : activeTab === "saved"
-        ? "Brak zapisanych ofert. Otwórz linkedin.com/jobs i kliknij „💾 Zapisz do bazy” w panelu detali."
-        : "Brak widzianych ofert. Przeglądaj oferty na LinkedIn — zostaną zarejestrowane automatycznie.";
+        ? "No saved jobs yet. Open linkedin.com/jobs and click \"💾 Save to DB\" in the job detail panel."
+        : "No seen jobs yet. Browse jobs on LinkedIn — they will be registered automatically.";
     return;
   }
   if (activeTab === "saved") renderSaved(filtered);
@@ -70,14 +70,14 @@ function renderSaved(list) {
     title.href = job.url || `https://www.linkedin.com/jobs/view/${job.jobId}/`;
     node.querySelector(".row__company").textContent = job.company || "";
     node.querySelector(".row__loc").textContent = job.location || "";
-    node.querySelector(".row__date").textContent = job.savedAt ? new Date(job.savedAt).toLocaleString("pl-PL") : "";
+    node.querySelector(".row__date").textContent = job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : "";
     node.querySelector(".row__desc").textContent = (job.descriptionText || "").slice(0, 300) + ((job.descriptionText || "").length > 300 ? "…" : "");
     node.querySelector(".row__copy").addEventListener("click", () => {
       const txt = [job.title, job.company, job.location, job.url, "---", job.descriptionText].filter(Boolean).join("\n");
-      navigator.clipboard.writeText(txt).then(() => flash(node, "Skopiowano"), () => flash(node, "Błąd"));
+      navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
     });
     node.querySelector(".row__delete").addEventListener("click", async () => {
-      if (!confirm(`Usunąć ofertę „${job.title || job.jobId}”?`)) return;
+      if (!confirm(`Delete job "${job.title || job.jobId}"?`)) return;
       await deleteJob(job.jobId);
       await refresh();
     });
@@ -88,20 +88,20 @@ function renderSaved(list) {
 function renderSeen(list) {
   for (const s of list) {
     const node = seenRowTpl.content.cloneNode(true);
-    node.querySelector(".row__title").textContent = s.title || "(brak tytułu)";
+    node.querySelector(".row__title").textContent = s.title || "(untitled)";
     node.querySelector(".row__company").textContent = s.company || "";
     const repost = (s.jobIds || []).length > 1;
-    node.querySelector(".row__seen-count").textContent = "👁 " + (s.seenCount || 1) + "× widziana" + (repost ? " (ponowna publikacja!)" : "");
-    node.querySelector(".row__first").textContent = "pierwszy raz: " + (s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("pl-PL") : "?");
-    node.querySelector(".row__last").textContent = "ostatnio: " + (s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("pl-PL") : "?");
+    node.querySelector(".row__seen-count").textContent = "👁 " + (s.seenCount || 1) + "× seen" + (repost ? " (repost!)" : "");
+    node.querySelector(".row__first").textContent = "first: " + (s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("en-US") : "?");
+    node.querySelector(".row__last").textContent = "last: " + (s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__ids").textContent = "jobIds: " + (s.jobIds || []).join(", ");
     node.querySelector(".row__desc").textContent = (s.descriptionText || "").slice(0, 200) + ((s.descriptionText || "").length > 200 ? "…" : "");
     node.querySelector(".row__copy-seen").addEventListener("click", () => {
       const txt = [s.title, s.company, s.descriptionText].filter(Boolean).join("\n");
-      navigator.clipboard.writeText(txt).then(() => flash(node, "Skopiowano"), () => flash(node, "Błąd"));
+      navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
     });
     node.querySelector(".row__forget").addEventListener("click", async () => {
-      if (!confirm(`Zapomnieć widzianą ofertę „${s.title || s.fingerprint}”?`)) return;
+      if (!confirm(`Forget seen job "${s.title || s.fingerprint}"?`)) return;
       await deleteSeen(s.fingerprint);
       await refresh();
     });
@@ -125,9 +125,9 @@ document.querySelectorAll(".tab").forEach(t => {
     t.classList.add("tab--active");
     activeTab = t.getAttribute("data-tab");
     countEl.textContent = activeTab === "saved"
-      ? `${jobs.length} zapisanych`
+      ? `${jobs.length} saved`
       : activeTab === "seen"
-        ? `${seen.length} widzianych`
+        ? `${seen.length} seen`
         : "Backup";
     render();
   });
@@ -150,14 +150,14 @@ async function refreshBackupPanel() {
   const s = (res && res.settings) || {};
   autoChk.checked = !!s.autoBackup;
   modeSel.value = s.backupMode || "overwrite";
-  let txt = "Backup auto: <b>" + (s.autoBackup ? "WŁĄCZONY" : "wyłączony") + "</b><br>";
-  txt += "Tryb: " + (s.backupMode === "timestamp" ? "kolejne pliki z timestampem" : "nadpisuj „latest.json”") + "<br>";
+  let txt = "Auto-backup: <b>" + (s.autoBackup ? "ENABLED" : "disabled") + "</b><br>";
+  txt += "Mode: " + (s.backupMode === "timestamp" ? "sequential timestamped files" : "overwrite \"latest.json\"") + "<br>";
   if (s.lastBackupAt) {
-    txt += "Ostatni backup: <b>" + new Date(s.lastBackupAt).toLocaleString("pl-PL") + "</b><br>";
-    txt += "Plik: <code>" + (s.lastBackupFile || "?") + "</code><br>";
-    txt += "Pozycji: " + (s.lastBackupCount || 0);
+    txt += "Last backup: <b>" + new Date(s.lastBackupAt).toLocaleString("en-US") + "</b><br>";
+    txt += "File: <code>" + (s.lastBackupFile || "?") + "</code><br>";
+    txt += "Entries: " + (s.lastBackupCount || 0);
   } else {
-    txt += "Brak backupu dotychczas.";
+    txt += "No backup yet.";
   }
   statusEl.innerHTML = txt;
 }
@@ -173,14 +173,14 @@ modeSel.addEventListener("change", async () => {
 
 backupNowBtn.addEventListener("click", async () => {
   backupNowBtn.disabled = true;
-  backupNowBtn.textContent = "Zapisuję…";
+  backupNowBtn.textContent = "Saving…";
   const res = await sendMsg({ type: "backup-now" });
   backupNowBtn.disabled = false;
-  backupNowBtn.textContent = "Zrób backup teraz";
+  backupNowBtn.textContent = "Back up now";
   if (res && res.ok) {
-    setTimeout(refreshBackupPanel, 500); // daj czas na download
+    setTimeout(refreshBackupPanel, 500);
   } else {
-    alert("Backup nieudany: " + (res && res.error ? res.error : "?"));
+    alert("Backup failed: " + (res && res.error ? res.error : "?"));
   }
 });
 
@@ -188,7 +188,7 @@ importBtn.addEventListener("click", () => importFile.click());
 importFile.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (!confirm(`Wczytać plik „${file.name}”?\nZastąpi to bieżącą bazę (zapisane + widziane).`)) {
+  if (!confirm(`Load file "${file.name}"?\nThis will REPLACE the current database (saved + seen).`)) {
     importFile.value = "";
     return;
   }
@@ -197,29 +197,29 @@ importFile.addEventListener("change", async (e) => {
     const data = JSON.parse(text);
     let savedArr = [];
     let seenArr = [];
-    if (Array.isArray(data)) savedArr = data;                          // stary format
+    if (Array.isArray(data)) savedArr = data;                          // legacy format
     else if (data && typeof data === "object") {
-      if (Array.isArray(data.saved)) savedArr = data.saved;             // nowy format (array)
-      else if (data.saved && typeof data.saved === "object") savedArr = Object.values(data.saved);  // format backupu (map)
+      if (Array.isArray(data.saved)) savedArr = data.saved;             // export format (array)
+      else if (data.saved && typeof data.saved === "object") savedArr = Object.values(data.saved);  // backup format (map)
       if (Array.isArray(data.seen)) seenArr = data.seen;
       else if (data.seen && typeof data.seen === "object") seenArr = Object.values(data.seen);
     }
-    // UWAGA: import ZASTĘPUJE bazę — najpierw wyczyść.
+    // NOTE: import REPLACES the database — clear first.
     const { clearAll } = await import("../lib/db.js");
     await clearAll();
     let n = 0, m = 0;
     for (const j of savedArr) { if (j && j.jobId) { await saveJob(j); n++; } }
     for (const s of seenArr) { if (s && s.fingerprint) { await saveSeen(s); m++; } }
-    alert(`Wczytano: ${n} zapisanych, ${m} widzianych.`);
+    alert(`Loaded: ${n} saved, ${m} seen.`);
     await refresh();
   } catch (err) {
-    alert("Błąd wczytywania: " + err.message);
+    alert("Load error: " + err.message);
   } finally {
     importFile.value = "";
   }
 });
 
-// ----- Eksport z popup -----
+// ----- Export from popup -----
 document.getElementById("export-json").addEventListener("click", () => {
   const payload = { saved: jobs, seen, exportedAt: new Date().toISOString() };
   download("linkedin-jobs.json", JSON.stringify(payload, null, 2), "application/json");

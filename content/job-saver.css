@@ -1,4 +1,4 @@
-/* Przycisk zapisu w detalu oferty */
+/* Save button in the job detail panel */
 #ljs-save-btn {
   appearance: none;
   border: 1px solid rgba(0,0,0,.6);
@@ -44,7 +44,7 @@
 .ljs-toast.ljs-toast--err { background: #b00020; }
 .ljs-toast.ljs-toast--ok { background: #057642; }
 
-/* Badge na karcie na liście: "👁 widziana N dni temu" */
+/* Badge on list card: "👁 seen N days ago" */
 .ljs-seen-badge {
   display: inline-flex;
   align-items: center;
@@ -67,7 +67,7 @@
   content: "";
 }
 
-/* Banner w panelu detali: "ta oferta była już widziana — ponowna publikacja" */
+/* Banner in detail panel: "this job was already seen — repost" */
 .ljs-detail-banner {
   position: fixed;
   top: 0;

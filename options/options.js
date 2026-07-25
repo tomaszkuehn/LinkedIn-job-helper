@@ -11,8 +11,8 @@ async function refresh() {
   jobs.sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
   seen = await getAllSeen();
   seen.sort((a, b) => (b.lastSeenAt || "").localeCompare(a.lastSeenAt || ""));
-  document.getElementById("saved-count").textContent = `${jobs.length} zapisanych ofert`;
-  document.getElementById("seen-count").textContent = `${seen.length} widzianych ofert`;
+  document.getElementById("saved-count").textContent = `${jobs.length} saved jobs`;
+  document.getElementById("seen-count").textContent = `${seen.length} seen jobs`;
   renderSaved();
   renderSeen();
 }
@@ -30,7 +30,7 @@ function renderSaved() {
       <td><a href="${escAttr(job.url || "")}" target="_blank" rel="noopener">${escHtml(job.title || job.jobId)}</a></td>
       <td>${escHtml(job.company || "")}</td>
       <td>${escHtml(job.location || "")}</td>
-      <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("pl-PL") : ""}</td>
+      <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
       <td><div class="desc">${escHtml((job.descriptionText || "").slice(0, 400))}${(job.descriptionText || "").length > 400 ? "…" : ""}</div></td>
       <td><button data-del-saved="${escAttr(job.jobId)}" class="danger">Usuń</button></td>
     `;
@@ -39,7 +39,7 @@ function renderSaved() {
   tbody.querySelectorAll("[data-del-saved]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const id = btn.getAttribute("data-del-saved");
-      if (!confirm("Usunąć tę ofertę?")) return;
+      if (!confirm("Delete this job?")) return;
       await deleteJob(id);
       await refresh();
     });
@@ -59,19 +59,19 @@ function renderSeen() {
     tr.innerHTML = `
       <td>${escHtml(s.title || "(brak)")}</td>
       <td>${escHtml(s.company || "")}</td>
-      <td class="${repost ? "repost" : ""}">${repost ? "🔁 ponowna publikacja" : "1×"} (seenCount: ${s.seenCount || 1})</td>
-      <td>${s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("pl-PL") : "?"}</td>
-      <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("pl-PL") : "?"}</td>
+      <td class="${repost ? "repost" : ""}">${repost ? "🔁 repost" : "1×"} (seenCount: ${s.seenCount || 1})</td>
+      <td>${s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("en-US") : "?"}</td>
+      <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?"}</td>
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
       <td><div class="desc">${escHtml((s.descriptionText || "").slice(0, 400))}${(s.descriptionText || "").length > 400 ? "…" : ""}</div></td>
-      <td><button data-del-seen="${escAttr(s.fingerprint)}" class="danger">Zapomnij</button></td>
+      <td><button data-del-seen="${escAttr(s.fingerprint)}" class="danger">Forget</button></td>
     `;
     tbody.appendChild(tr);
   }
   tbody.querySelectorAll("[data-del-seen]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const fp = btn.getAttribute("data-del-seen");
-      if (!confirm("Zapomnieć tę widzianą ofertę?")) return;
+      if (!confirm("Forget this seen job?")) return;
       await deleteSeen(fp);
       await refresh();
     });
@@ -86,7 +86,7 @@ function escAttr(s) { return escHtml(s); }
 document.getElementById("search-saved").addEventListener("input", renderSaved);
 document.getElementById("search-seen").addEventListener("input", renderSeen);
 
-// Eksport JSON (zapisane + widziane razem)
+// Export JSON (saved + seen combined)
 document.getElementById("export-json").addEventListener("click", () => {
   const payload = { saved: jobs, seen, exportedAt: new Date().toISOString() };
   download("linkedin-jobs.json", JSON.stringify(payload, null, 2), "application/json");
@@ -110,7 +110,7 @@ document.getElementById("export-seen").addEventListener("click", () => {
   download("linkedin-seen.csv", "\uFEFF" + rows.join("\r\n"), "text/csv");
 });
 
-// Import JSON (obsługuje zarówno stary format [array] jak i nowy {saved, seen})
+// Import JSON (handles both legacy format [array] and new {saved, seen})
 document.getElementById("import-json").addEventListener("click", () => {
   document.getElementById("import-file").click();
 });
@@ -120,7 +120,7 @@ document.getElementById("import-file").addEventListener("change", async (e) => {
   const text = await file.text();
   let data;
   try { data = JSON.parse(text); }
-  catch { alert("Niepoprawny JSON"); return; }
+  catch { alert("Invalid JSON"); return; }
 
   let savedArr = [];
   let seenArr = [];
@@ -142,17 +142,17 @@ document.getElementById("import-file").addEventListener("change", async (e) => {
     await saveSeen(s);
     m++;
   }
-  alert(`Zaimportowano: ${n} zapisanych, ${m} widzianych.`);
+  alert(`Imported: ${n} saved, ${m} seen.`);
   await refresh();
 });
 
 document.getElementById("clear-saved").addEventListener("click", async () => {
-  if (!confirm(`Usunąć WSZYSTKIE ${jobs.length} zapisanych ofert?`)) return;
+  if (!confirm(`Delete ALL ${jobs.length} saved jobs?`)) return;
   await clearJobs();
   await refresh();
 });
 document.getElementById("clear-seen").addEventListener("click", async () => {
-  if (!confirm(`Usunąć WSZYSTKIE ${seen.length} widzianych ofert?`)) return;
+  if (!confirm(`Delete ALL ${seen.length} seen jobs?`)) return;
   await clearSeen();
   await refresh();
 });
