@@ -70,6 +70,7 @@ function renderSaved(list) {
     title.href = job.url || `https://www.linkedin.com/jobs/view/${job.jobId}/`;
     node.querySelector(".row__company").textContent = job.company || "";
     node.querySelector(".row__loc").textContent = job.location || "";
+    node.querySelector(".row__wp").textContent = formatWorkplace(job.workplaceType, job.city);
     node.querySelector(".row__date").textContent = job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : "";
     node.querySelector(".row__desc").textContent = (job.descriptionText || "").slice(0, 300) + ((job.descriptionText || "").length > 300 ? "…" : "");
     const statusSel = node.querySelector(".row__status");
@@ -102,6 +103,7 @@ function renderSeen(list) {
     node.querySelector(".row__company").textContent = s.company || "";
     const repost = (s.jobIds || []).length > 1;
     node.querySelector(".row__seen-count").textContent = "👁 " + (s.seenCount || 1) + "× seen" + (repost ? " (repost!)" : "");
+    node.querySelector(".row__wp").textContent = formatWorkplace(s.workplaceType, s.city);
     node.querySelector(".row__first").textContent = "first: " + (s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__last").textContent = "last: " + (s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__ids").textContent = "jobIds: " + (s.jobIds || []).join(", ");
@@ -149,6 +151,14 @@ function toast(msg) {
   el.style.opacity = "1";
   clearTimeout(toast._t);
   toast._t = setTimeout(() => (el.style.opacity = "0"), 1500);
+}
+
+const WP_LABELS = { remote: "Remote", hybrid: "Hybrid", onsite: "On-site" };
+const WP_EMOJI = { remote: "🌐", hybrid: "🔀", onsite: "🏢" };
+function formatWorkplace(wp, city) {
+  if (!wp && !city) return "";
+  const wpLabel = wp ? (WP_EMOJI[wp] || "") + " " + (WP_LABELS[wp] || wp) : "";
+  return [wpLabel, city ? "📍 " + city : ""].filter(Boolean).join("  ");
 }
 
 // Inline confirm modal — replaces window.confirm() which hangs in MV3 popups.

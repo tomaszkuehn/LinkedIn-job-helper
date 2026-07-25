@@ -67,6 +67,57 @@
     "ignored": "Ignore",
   };
 
+  // ---------- Workplace type + city detection (inline copy of lib/db.js) ----------
+  const WORKPLACE_PATTERNS = [
+    { type: "remote", re: /\b(fully\s+remote|100%?\s*%?\s*remote|work\s+from\s+home|wfh|remote\s+first|remote-?first|fully\s*distributed|anywhere\s+in\s+the\s+world)\b/i },
+    { type: "remote", re: /\bremote\b/i },
+    { type: "hybrid", re: /\bhybrid\b/i },
+    { type: "onsite", re: /\b(?:on[-\s]?site|in[-\s]?office|office[-\s]?based|in\s+person)\b/i },
+  ];
+  const COUNTRIES_SET = new Set(["germany", "poland", "united states", "usa", "uk", "united kingdom", "france", "netherlands", "spain", "italy", "sweden", "switzerland", "austria", "ireland", "portugal", "romania", "czech republic", "belgium", "denmark", "finland", "norway", "india", "canada"]);
+
+  function analyzeLocation(location, descriptionText) {
+    let workplaceType = "";
+    let city = "";
+    const loc = String(location || "").trim();
+    if (loc) {
+      const locLower = loc.toLowerCase();
+      if (/\bremote\b/.test(locLower) && !/\bhybrid\b/.test(locLower)) workplaceType = "remote";
+      else if (/\bhybrid\b/.test(locLower)) workplaceType = "hybrid";
+      else if (/\bon[-\s]?site\b/.test(locLower) || /\bin[-\s]?office\b/.test(locLower)) workplaceType = "onsite";
+      let cleaned = loc.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s*·\s*.*$/, "").trim();
+      cleaned = cleaned.replace(/\s*(remote|hybrid|on[-\s]?site|in[-\s]?office)\b.*$/i, "").trim();
+      if (cleaned) {
+        const parts = cleaned.split(",").map(s => s.trim()).filter(Boolean);
+        if (parts.length > 1) city = parts[0];
+        else if (parts.length === 1 && !/remote|hybrid|onsite|on-site/i.test(parts[0])) {
+          if (!COUNTRIES_SET.has(parts[0].toLowerCase())) city = parts[0];
+        }
+      }
+    }
+    if (!workplaceType && descriptionText) {
+      const desc = String(descriptionText);
+      const m = desc.match(/(?:location|workplace|work\s*location|workplace\s*type)\s*[:\-]\s*([^\n]{1,80})/i);
+      if (m) {
+        const line = m[1];
+        if (/\bremote\b/i.test(line) && !/\bhybrid\b/i.test(line)) workplaceType = "remote";
+        else if (/\bhybrid\b/i.test(line)) workplaceType = "hybrid";
+        else if (/\bon[-\s]?site\b/i.test(line) || /\bin[-\s]?office\b/i.test(line)) workplaceType = "onsite";
+        if (!city) {
+          const cleanLine = line.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s*(remote|hybrid|on[-\s]?site|in[-\s]?office)\b.*$/i, "").trim();
+          const parts = cleanLine.split(",").map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 1) city = parts[0];
+        }
+      }
+      if (!workplaceType) {
+        for (const p of WORKPLACE_PATTERNS) {
+          if (p.re.test(desc)) { workplaceType = p.type; break; }
+        }
+      }
+    }
+    return { workplaceType, city };
+  }
+
   // Compute detailFingerprint for current detail, get/create seen entry, set status.
   // Status lookup/match uses cardFingerprint (title+company) so it's stable whether
   // or not the description has loaded yet — detailFingerprint depends on descriptionText
@@ -91,6 +142,9 @@
         cardFingerprint: cfp,
         title: meta.title || "",
         company: meta.company || "",
+        location: meta.location || "",
+        workplaceType: meta.workplaceType || "",
+        city: meta.city || "",
         descriptionText: meta.descriptionText || "",
         descriptionHtml: meta.descriptionHtml || "",
         jobIds: [String(meta.jobId)],
@@ -232,14 +286,19 @@
       root.querySelector(".jobs-description-content__text--stretch") ||
       root.querySelector(".jobs-description__content") ||
       root.querySelector("#job-view-description");
+    const _location = textClean(locEl);
+    const _descText = descEl ? descEl.innerText : "";
+    const _wa = analyzeLocation(_location, _descText);
     return {
       jobId: String(jobId),
       title: textClean(titleEl),
       company: textClean(companyEl),
-      location: textClean(locEl),
+      location: _location,
+      workplaceType: _wa.workplaceType,
+      city: _wa.city,
       url: "https://www.linkedin.com/jobs/view/" + jobId + "/",
       descriptionHtml: descEl ? descEl.innerHTML : "",
-      descriptionText: descEl ? descEl.innerText : "",
+      descriptionText: _descText,
     };
   }
 
@@ -316,6 +375,8 @@
         title: meta.title,
         company: meta.company,
         location: meta.location,
+        workplaceType: meta.workplaceType || "",
+        city: meta.city || "",
         url: meta.url,
         descriptionHtml: meta.descriptionHtml || "",
         descriptionText: meta.descriptionText || "",
@@ -479,7 +540,7 @@
     try {
       const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
       const cfp = await cardFingerprint(meta.title, meta.company);
-      if (fp === lastSeenFp) return; // już zarejestrowana w tej sesji widoku
+      if (fp === lastSeenFp) return; // already registered in this view session
       lastSeenFp = fp;
       const existing = await getSeenByFp(fp);
       const now = new Date().toISOString();
@@ -487,6 +548,10 @@
         existing.lastSeenAt = now;
         existing.seenCount = (existing.seenCount || 1) + 1;
         if (!existing.jobIds.includes(meta.jobId)) existing.jobIds.push(meta.jobId);
+        // Refresh workplace/city if they were missing (e.g. description loaded since first view).
+        if (!existing.workplaceType && meta.workplaceType) existing.workplaceType = meta.workplaceType;
+        if (!existing.city && meta.city) existing.city = meta.city;
+        if (!existing.location && meta.location) existing.location = meta.location;
         await upsertSeen(existing);
       } else {
         await upsertSeen({
@@ -494,11 +559,17 @@
           cardFingerprint: cfp,
           title: meta.title,
           company: meta.company,
+          location: meta.location || "",
+          workplaceType: meta.workplaceType || "",
+          city: meta.city || "",
           descriptionText: meta.descriptionText,
+          descriptionHtml: meta.descriptionHtml || "",
           jobIds: [meta.jobId],
           firstSeenAt: now,
           lastSeenAt: now,
           seenCount: 1,
+          status: "",
+          statusSetAt: null,
         });
       }
       // After registering, show banner if repost.

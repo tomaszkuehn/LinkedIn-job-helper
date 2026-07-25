@@ -4,7 +4,10 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 
 ## Features
 
-- **Save to local database** — injects a "Save to DB" button in the LinkedIn job detail panel. Scrapes title, company, location, URL, and the full job description (`#job-details`). Status set before saving (Apply / Consider / German / Ignore) is carried over to the saved job.
+- **Save to local database** — injects a "Save to DB" button in the LinkedIn job detail panel. Scrapes title, company, location, workplace type, city, URL, and the full job description (`#job-details`). Status set before saving (Apply / Consider / German / Ignore) is carried over to the saved job.
+- **Workplace type & city detection** — extracts `workplaceType` (remote / hybrid / onsite) and `city` from:
+  1. Location metadata (already scraped) — e.g. "Hamburg, Hamburg, Germany (Hybrid)" → workplaceType=hybrid, city=Hamburg
+  2. Description text fallback (regex over "Location:" / "Workplace:" sections and phrases like "fully remote", "work from home", "on-site")
 - **Repost detection** — identifies already-seen jobs even when re-posted with a new `jobId`, using two content fingerprints:
   - `cardFingerprint` (loose): title + company — for fast badge matching on the list view and for status matching (stable whether or not the description has loaded)
   - `detailFingerprint` (strict): title + company + description text — for reliable repost detection
@@ -27,8 +30,8 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 - **Storage usage indicator** — popup shows bytes used / ~10 MB limit with color-coded bar (green/amber/red) and a contextual hint.
 - **Import / restore** — load a backup or export file back into the database (replaces current data, with confirmation). Handles legacy array format, `{saved, seen}` array format, and backup map format.
 - **Inline confirm dialogs** — the popup uses custom modal dialogs instead of `window.confirm()`, which hangs MV3 popups when they lose focus. Esc cancels, Enter confirms.
-- **Popup UI** — three tabs: **Saved**, **Seen**, **Backup**. Search, status dropdown, copy content, delete/forget, export JSON/CSV. Quick status change with toast feedback.
-- **Options page** — full tabular view of saved and seen jobs with status column, status filter, search, preview modal, import/export (JSON + CSV with status column), clear-all.
+- **Popup UI** — three tabs: **Saved**, **Seen**, **Backup**. Search, status dropdown, workplace/city chip, copy content, delete/forget, export JSON/CSV. Quick status change with toast feedback.
+- **Options page** — full tabular view of saved and seen jobs with location, workplace, city, status columns; filters by status and workplace type (All / Remote / Hybrid / On-site / No workplace); search; preview modal; import/export (JSON + CSV with workplace/city/status columns); clear-all.
 
 ## Storage
 
@@ -46,7 +49,10 @@ Data does **not** sync between devices. Use the backup file to transfer or resto
 Saved job (`ljs_jobs[jobId]`):
 ```
 {
-  jobId, title, company, location, url,
+  jobId, title, company, location,
+  workplaceType: "" | "remote" | "hybrid" | "onsite",
+  city: "",
+  url,
   descriptionHtml, descriptionText,
   savedAt, sourceUrl,
   status: "" | "apply" | "to-consider" | "german" | "ignored",
@@ -58,7 +64,9 @@ Seen entry (`ljs_seen[fingerprint]`):
 ```
 {
   fingerprint, cardFingerprint,
-  title, company,
+  title, company, location,
+  workplaceType: "" | "remote" | "hybrid" | "onsite",
+  city: "",
   descriptionText, descriptionHtml,   // empty when status === "ignored"
   jobIds: […],
   firstSeenAt, lastSeenAt, seenCount,
@@ -78,6 +86,7 @@ content/job-saver.js      content script (self-contained, no ES imports):
 content/job-saver.css     styles for injected toolbar, action buttons, badges, toast, banner
 lib/db.js                 storage backend (chrome.storage.local) + status helpers
                           (setJobStatus, setSeenStatus, ensureSeen, getAllSeenByStatus, …)
+                          + analyzeLocation (workplace type + city detection)
                           used by popup/options
 lib/scraper.js            scraper helpers (legacy, popup/options)
 popup/popup.{html,css,js} toolbar popup: Saved / Seen / Backup tabs + inline confirm modal
@@ -108,6 +117,7 @@ No remote permissions. No data leaves the browser.
 - `chrome.storage.local` has a ~10 MB quota — enough for tens of thousands of jobs with full description text. Auto-prune of seen entries (default 90 days) keeps growth bounded; backup files are the durable source of truth.
 - Fingerprint matching is heuristic: minor edits to the job description by the poster produce a different `detailFingerprint` and won't be flagged as a repost. `cardFingerprint` (title + company only) catches re-posts under a new jobId even with edited descriptions, at the cost of occasional false positives for genuinely different jobs with the same title and company.
 - Status is matched by `cardFingerprint` (title + company). Two genuinely different jobs with identical title + company share a status. In practice this is rare and the trade-off is acceptable (status is per-job-listing in spirit, but the matcher is intentionally loose so status survives a re-post with edited description).
+- Workplace/city detection is heuristic. The location-metadata path is reliable when LinkedIn exposes it; the description-text fallback may produce false positives on generic phrases (e.g. "remote team" → remote). City extraction drops trailing country segments and known country names; single-token locations that aren't recognized countries are treated as cities.
 
 ## License
 

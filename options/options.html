@@ -88,6 +88,13 @@
       <option value="ignored">Ignored</option>
       <option value="__none__">No status</option>
     </select>
+    <select id="filter-wp-saved" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+      <option value="">All workplaces</option>
+      <option value="remote">Remote</option>
+      <option value="hybrid">Hybrid</option>
+      <option value="onsite">On-site</option>
+      <option value="__none__">No workplace</option>
+    </select>
     <button id="export-json">Export JSON (saved + seen)</button>
     <button id="export-csv">Export CSV (saved)</button>
     <button id="import-json" class="ghost">Import JSON</button>
@@ -96,7 +103,7 @@
   </div>
   <table id="table-saved">
     <thead>
-      <tr><th>Title</th><th>Company</th><th>Location</th><th>Status</th><th>Saved</th><th>Description (excerpt)</th><th></th></tr>
+      <tr><th>Title</th><th>Company</th><th>Location</th><th>Workplace</th><th>City</th><th>Status</th><th>Saved</th><th>Description (excerpt)</th><th></th></tr>
     </thead>
     <tbody id="rows-saved"></tbody>
   </table>
@@ -113,12 +120,19 @@
       <option value="ignored">Ignored</option>
       <option value="__none__">No status</option>
     </select>
+    <select id="filter-wp-seen" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+      <option value="">All workplaces</option>
+      <option value="remote">Remote</option>
+      <option value="hybrid">Hybrid</option>
+      <option value="onsite">On-site</option>
+      <option value="__none__">No workplace</option>
+    </select>
     <button id="export-seen" class="ghost">Export seen (CSV)</button>
     <button id="clear-seen" class="danger">Clear seen</button>
   </div>
   <table id="table-seen">
     <thead>
-      <tr><th>Title</th><th>Company</th><th>Seen</th><th>Status</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Description (excerpt)</th><th></th></tr>
+      <tr><th>Title</th><th>Company</th><th>Workplace</th><th>City</th><th>Seen</th><th>Status</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Description (excerpt)</th><th></th></tr>
     </thead>
     <tbody id="rows-seen"></tbody>
   </table>
