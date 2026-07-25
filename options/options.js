@@ -108,6 +108,7 @@ function renderSaved() {
         <select data-job-status="${escAttr(job.jobId)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
           <option value=""${!job.status ? " selected" : ""}>—</option>
           <option value="apply"${job.status === "apply" ? " selected" : ""}>Apply</option>
+          <option value="applied"${job.status === "applied" ? " selected" : ""}>Applied</option>
           <option value="to-consider"${job.status === "to-consider" ? " selected" : ""}>Consider</option>
           <option value="german"${job.status === "german" ? " selected" : ""}>German</option>
           <option value="ignored"${job.status === "ignored" ? " selected" : ""}>Ignore</option>
@@ -116,8 +117,8 @@ function renderSaved() {
       <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
       <td>${descLabel(job.descriptionText)}</td>
       <td>
-        <button data-view-saved="${escAttr(job.jobId)}" class="ghost">👁 View</button>
-        <button data-del-saved="${escAttr(job.jobId)}" class="danger">🗑 Delete</button>
+        <button data-view-saved="${escAttr(job.jobId)}" class="icon-btn" title="View" style="background:none;border:1px solid #0a66c2;color:#0a66c2;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">👁</button>
+        <button data-del-saved="${escAttr(job.jobId)}" class="icon-btn" title="Delete" style="background:none;border:1px solid #b00020;color:#b00020;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">🗑</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -180,6 +181,7 @@ function renderSeen() {
         <select data-seen-status="${escAttr(s.fingerprint)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
           <option value=""${!s.status ? " selected" : ""}>—</option>
           <option value="apply"${s.status === "apply" ? " selected" : ""}>Apply</option>
+          <option value="applied"${s.status === "applied" ? " selected" : ""}>Applied</option>
           <option value="to-consider"${s.status === "to-consider" ? " selected" : ""}>Consider</option>
           <option value="german"${s.status === "german" ? " selected" : ""}>German</option>
           <option value="ignored"${s.status === "ignored" ? " selected" : ""}>Ignore</option>
@@ -191,9 +193,9 @@ function renderSeen() {
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
       <td>${descLabel(s.descriptionText)}</td>
       <td>
-        <button data-view-seen="${escAttr(s.fingerprint)}" class="ghost">👁 View</button>
-        <button data-to-saved="${escAttr(s.fingerprint)}" class="ghost" style="color:#057642;border-color:#057642">↳ To saved</button>
-        <button data-del-seen="${escAttr(s.fingerprint)}" class="danger">🗑 Forget</button>
+        <button data-view-seen="${escAttr(s.fingerprint)}" class="icon-btn" title="View" style="background:none;border:1px solid #0a66c2;color:#0a66c2;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">👁</button>
+        <button data-to-saved="${escAttr(s.fingerprint)}" class="icon-btn" title="Copy to saved" style="background:none;border:1px solid #057642;color:#057642;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">↳</button>
+        <button data-del-seen="${escAttr(s.fingerprint)}" class="icon-btn" title="Forget" style="background:none;border:1px solid #b00020;color:#b00020;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">🗑</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -344,6 +346,7 @@ function download(filename, content, mime) {
 // ---------- Job preview modal ----------
 const STATUS_LABELS_FULL = {
   "apply": "Apply",
+  "applied": "Applied",
   "to-consider": "Consider",
   "german": "German",
   "ignored": "Ignored",

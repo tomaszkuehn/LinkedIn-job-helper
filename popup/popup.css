@@ -119,15 +119,17 @@ h1 { font-size: 15px; margin: 0; }
   font-size: 12px;
 }
 .row__actions button {
-  padding: 4px 10px;
-  font: 12px/1 "Segoe UI", Arial, sans-serif;
+  padding: 4px 8px;
+  font: 14px/1 "Segoe UI", Arial, sans-serif;
   border: 1px solid #ccc;
   background: #fff;
   border-radius: 4px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
 }
 .row__actions button:hover { background: #f0f0f0; }
 .row__copy, .row__copy-seen { color: #0a66c2; border-color: #0a66c2; }

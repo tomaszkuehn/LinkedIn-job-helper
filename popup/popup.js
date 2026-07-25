@@ -147,11 +147,7 @@ function renderSeen(list) {
 }
 
 function flash(node, msg) {
-  const btn = node.querySelector(".row__copy, .row__copy-seen");
-  if (!btn) return;
-  const orig = btn.textContent;
-  btn.textContent = msg;
-  setTimeout(() => (btn.textContent = orig), 1500);
+  toast(msg);
 }
 
 function toast(msg) {

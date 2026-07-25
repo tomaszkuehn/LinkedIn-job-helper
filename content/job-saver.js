@@ -80,9 +80,10 @@
   }
 
   // ---------- Status (apply / to-consider / german / ignored) ----------
-  const VALID_STATUSES = new Set(["apply", "to-consider", "german", "ignored"]);
+  const VALID_STATUSES = new Set(["apply", "applied", "to-consider", "german", "ignored"]);
   const STATUS_LABELS = {
     "apply": "Apply",
+    "applied": "Applied",
     "to-consider": "Consider",
     "german": "German",
     "ignored": "Ignore",
@@ -761,7 +762,7 @@
     toolbar.appendChild(btn);
 
     // Quick-action buttons.
-    const ACTIONS = ["apply", "to-consider", "german", "ignored"];
+    const ACTIONS = ["apply", "applied", "to-consider", "german", "ignored"];
     const actionBtns = {};
     for (const key of ACTIONS) {
       const ab = document.createElement("button");
