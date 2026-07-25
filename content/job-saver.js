@@ -935,15 +935,25 @@
   }
 
   function openOptionsOverlay() {
+    if (!checkCtx()) {
+      alert("LinkedIn Job Saver: extension was reloaded. Please reload this LinkedIn page to use the Options overlay.");
+      return;
+    }
     closeOptionsOverlay();
     const overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
     overlay.className = "ljs-overlay";
+    let optionsUrl;
+    try { optionsUrl = chrome.runtime.getURL("options/options.html"); }
+    catch (e) {
+      alert("LinkedIn Job Saver: extension context invalidated. Please reload this LinkedIn page.");
+      return;
+    }
     overlay.innerHTML = `
       <div class="ljs-overlay__backdrop"></div>
       <div class="ljs-overlay__card ljs-overlay__card--full">
         <button class="ljs-overlay__close" title="Close (Esc)">✕</button>
-        <iframe class="ljs-overlay__iframe" src="${chrome.runtime.getURL("options/options.html")}" title="LinkedIn Job Saver — Options"></iframe>
+        <iframe class="ljs-overlay__iframe" src="${optionsUrl}" title="LinkedIn Job Saver — Options"></iframe>
       </div>
     `;
     document.body.appendChild(overlay);
