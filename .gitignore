@@ -1,0 +1,29 @@
+# System / IDE
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Browser extension build artifacts
+*.zip
+*.crx
+*.pem
+dist/
+build/
+
+# Logs / temp
+*.log
+tmp/
+.tmp/
+
+# Project-local scratch files (sample data, debug snapshots)
+job.txt
+*-sample.json
+*.html.snapshot
+
+# IJFW metadata (nie jest częścią rozszerzenia)
+.ijfw/

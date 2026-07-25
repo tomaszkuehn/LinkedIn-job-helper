@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>LinkedIn Job Saver</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>LinkedIn Job Saver</h1>
+    <div class="count" id="count">0 ofert</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab tab--active" data-tab="saved">Zapisane (<span id="saved-n">0</span>)</button>
+    <button class="tab" data-tab="seen">Widziane (<span id="seen-n">0</span>)</button>
+    <button class="tab" data-tab="backup">Backup</button>
+  </div>
+
+  <div class="toolbar" id="toolbar-list">
+    <input id="search" type="search" placeholder="Szukaj po tytule / firmie…" />
+    <button id="export-json">Eksport JSON</button>
+    <button id="export-csv">Eksport CSV</button>
+    <button id="open-options">Opcje</button>
+  </div>
+
+  <ul id="list" class="list"></ul>
+  <p id="empty" class="empty" hidden></p>
+
+  <!-- Panel backup -->
+  <div id="panel-backup" class="panel" hidden>
+    <div class="backup-row">
+      <label class="switch">
+        <input type="checkbox" id="auto-backup" />
+        <span>Auto-backup po każdej zmianie</span>
+      </label>
+    </div>
+    <div class="backup-row">
+      <label>Tryb pliku:</label>
+      <select id="backup-mode">
+        <option value="overwrite">Nadpisuj „linkedin-jobs-latest.json”</option>
+        <option value="timestamp">Kolejne pliki z timestampem</option>
+      </select>
+    </div>
+    <div class="backup-status" id="backup-status">Ładowanie…</div>
+    <div class="backup-actions">
+      <button id="backup-now">Zrób backup teraz</button>
+      <button id="import-btn" class="ghost">Wczytaj z pliku</button>
+      <input id="import-file" type="file" accept="application/json" hidden />
+    </div>
+    <p class="hint">Pliki lądują w folderze <code>Pobrane/linkedin-jobs-backup/</code>. Użyj „Wczytaj z pliku”, by przywrócić bazę (np. po reinstallu).</p>
+  </div>
+
+  <template id="row-tpl">
+    <li class="row">
+      <div class="row__head">
+        <a class="row__title" target="_blank" rel="noopener"></a>
+        <span class="row__company"></span>
+      </div>
+      <div class="row__meta">
+        <span class="row__loc"></span>
+        <span class="row__date"></span>
+      </div>
+      <div class="row__desc"></div>
+      <div class="row__actions">
+        <button class="row__copy">Kopiuj treść</button>
+        <button class="row__delete">Usuń</button>
+      </div>
+    </li>
+  </template>
+
+  <template id="seen-row-tpl">
+    <li class="row row--seen">
+      <div class="row__head">
+        <span class="row__title" style="cursor:default"></span>
+        <span class="row__company"></span>
+      </div>
+      <div class="row__meta">
+        <span class="row__seen-count"></span>
+        <span class="row__first"></span>
+        <span class="row__last"></span>
+      </div>
+      <div class="row__ids"></div>
+      <div class="row__desc"></div>
+      <div class="row__actions">
+        <button class="row__copy-seen">Kopiuj treść</button>
+        <button class="row__forget">Zapomnij</button>
+      </div>
+    </li>
+  </template>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Job Saver",
+  "version": "0.4.0",
+  "description": "Zapisuj oferty pracy z LinkedIn do lokalnej bazy z auto-backupem do pliku i identyfikacją ponownie publikowanych ofert.",
+  "permissions": ["storage", "activeTab", "scripting", "downloads"],
+  "host_permissions": ["https://www.linkedin.com/*"],
+  "action": {
+    "default_title": "LinkedIn Job Saver",
+    "default_popup": "popup/popup.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background/sw.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/jobs/*", "https://www.linkedin.com/jobs/search*"],
+      "js": ["content/job-saver.js"],
+      "css": ["content/job-saver.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

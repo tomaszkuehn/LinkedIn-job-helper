@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>LinkedIn Job Saver — opcje</title>
+  <style>
+    body { font: 14px/1.5 "Segoe UI", Arial, sans-serif; margin: 24px auto; max-width: 1100px; color: #1f1f1f; }
+    h1 { margin-top: 0; }
+    h2 { margin-top: 24px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    button { padding: 8px 14px; border: 1px solid #0a66c2; background: #0a66c2; color: #fff; border-radius: 4px; cursor: pointer; font: inherit; }
+    button:hover { background: #004182; }
+    button.danger { background: #fff; color: #b00020; border-color: #b00020; }
+    button.danger:hover { background: #fee; }
+    button.ghost { background: #fff; color: #0a66c2; }
+    input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 200px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+    th { background: #f7f9fa; position: sticky; top: 0; }
+    .desc { max-width: 380px; max-height: 120px; overflow: auto; white-space: pre-wrap; font-size: 12px; background: #f7f9fa; padding: 6px; border-radius: 4px; }
+    .count { color: #666; }
+    .ids { font-size: 11px; color: #999; }
+    .repost { color: #b00020; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>LinkedIn Job Saver</h1>
+
+  <h2>Zapisane oferty</h2>
+  <p class="count" id="saved-count"></p>
+  <div class="toolbar">
+    <input id="search-saved" type="search" placeholder="Szukaj w zapisanych…" />
+    <button id="export-json">Eksport JSON (zapisane + widziane)</button>
+    <button id="export-csv">Eksport CSV (zapisane)</button>
+    <button id="import-json" class="ghost">Import JSON</button>
+    <input id="import-file" type="file" accept="application/json" hidden />
+    <button id="clear-saved" class="danger">Wyczyść zapisane</button>
+  </div>
+  <table id="table-saved">
+    <thead>
+      <tr><th>Tytuł</th><th>Firma</th><th>Lokalizacja</th><th>Zapisano</th><th>Opis (fragment)</th><th></th></tr>
+    </thead>
+    <tbody id="rows-saved"></tbody>
+  </table>
+
+  <h2>Widziane oferty <span style="font-weight:normal;font-size:12px;color:#777">(auto-rejestrowane, detekcja ponownej publikacji)</span></h2>
+  <p class="count" id="seen-count"></p>
+  <div class="toolbar">
+    <input id="search-seen" type="search" placeholder="Szukaj w widzianych…" />
+    <button id="export-seen" class="ghost">Eksport widzianych (CSV)</button>
+    <button id="clear-seen" class="danger">Wyczyść widziane</button>
+  </div>
+  <table id="table-seen">
+    <thead>
+      <tr><th>Tytuł</th><th>Firma</th><th>Widziana</th><th>Pierwszy raz</th><th>Ostatnio</th><th>jobIds</th><th>Opis (fragment)</th><th></th></tr>
+    </thead>
+    <tbody id="rows-seen"></tbody>
+  </table>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

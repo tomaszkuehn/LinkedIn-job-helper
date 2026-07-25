@@ -1,0 +1,87 @@
+/* Przycisk zapisu w detalu oferty */
+#ljs-save-btn {
+  appearance: none;
+  border: 1px solid rgba(0,0,0,.6);
+  background: #0a66c2;
+  color: #fff;
+  font: 600 13px/1 "Segoe UI", Arial, sans-serif;
+  padding: 8px 16px;
+  border-radius: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 8px 8px;
+  transition: background .15s, opacity .15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+#ljs-save-btn:hover { background: #004182; }
+#ljs-save-btn:disabled { opacity: .55; cursor: default; }
+
+#ljs-save-btn.ljs-save-btn--saved { background: #057642; border-color: #057642; }
+#ljs-save-btn.ljs-save-btn--saved:hover { background: #046238; }
+#ljs-save-btn.ljs-save-btn--err { background: #b00020; border-color: #b00020; }
+
+/* Toast */
+.ljs-toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  background: #1f1f1f;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font: 13px/1.4 "Segoe UI", Arial, sans-serif;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+  max-width: 360px;
+}
+.ljs-toast.ljs-toast--show { opacity: 1; transform: translateY(0); }
+.ljs-toast.ljs-toast--err { background: #b00020; }
+.ljs-toast.ljs-toast--ok { background: #057642; }
+
+/* Badge na karcie na liście: "👁 widziana N dni temu" */
+.ljs-seen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f3f0e8;
+  color: #915907;
+  border: 1px solid #e0d4b0;
+  font: 600 11px/1.4 "Segoe UI", Arial, sans-serif;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.ljs-seen-badge--repost {
+  background: #fde7e9;
+  color: #b00020;
+  border-color: #f5b5bd;
+}
+.ljs-seen-badge--repost::after {
+  content: "";
+}
+
+/* Banner w panelu detali: "ta oferta była już widziana — ponowna publikacja" */
+.ljs-detail-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483646;
+  background: #915907;
+  color: #fff;
+  font: 600 13px/1.4 "Segoe UI", Arial, sans-serif;
+  padding: 10px 16px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  display: none;
+}
+.ljs-detail-banner--repost {
+  background: #b00020;
+}
