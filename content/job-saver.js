@@ -352,15 +352,21 @@
     for (const e of matches) for (const jid of (e.jobIds || [])) allJobIds.add(String(jid));
     const jobs = await storageGet(KEY_JOBS);
     let jobsChanged = false;
-    for (const jid of allJobIds) {
-      if (jobs[jid]) {
-        jobs[jid].status = status || "";
-        jobs[jid].statusSetAt = status ? now : null;
-        if (status === "ignored") {
-          jobs[jid].descriptionText = "";
-          jobs[jid].descriptionHtml = "";
+    if (status === "ignored") {
+      // "ignored" → remove from saved jobs (if present); keep only in seen (no description).
+      for (const jid of allJobIds) {
+        if (jobs[jid]) {
+          delete jobs[jid];
+          jobsChanged = true;
         }
-        jobsChanged = true;
+      }
+    } else {
+      for (const jid of allJobIds) {
+        if (jobs[jid]) {
+          jobs[jid].status = status || "";
+          jobs[jid].statusSetAt = status ? now : null;
+          jobsChanged = true;
+        }
       }
     }
     if (jobsChanged) await storageSet(KEY_JOBS, jobs);
@@ -774,8 +780,8 @@
         }
         const isAlready = ab.classList.contains(ACTION_BTN_CLASS + "--active");
         const nextStatus = isAlready ? "" : key;
-        // Confirmation for "ignored" — it strips the description from storage.
-        if (nextStatus === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+        // Confirmation for "ignored" — it removes the job from saved and strips the description from seen.
+        if (nextStatus === "ignored" && !confirm('Marking as "Ignore" removes the job from saved jobs and drops the description from seen storage (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
           return;
         }
         try {
@@ -786,7 +792,8 @@
             actionBtns[k].classList.toggle(ACTION_BTN_CLASS + "--active", k === key && !isAlready);
           }
           // Auto-save: apply / to-consider / german → save full job to DB if not already saved.
-          // ignored → only register in seen (without description); do NOT save to jobs.
+          // ignored → only register in seen (without description); do NOT save to jobs, and
+          // remove from jobs if it was previously saved (handled in setCurrentJobStatus).
           if (!isAlready && nextStatus && nextStatus !== "ignored") {
             if (!btn.classList.contains("ljs-save-btn--saved")) {
               if (!meta.descriptionHtml) {
@@ -808,6 +815,10 @@
                 toast("Description not loaded — click Save manually", "err");
               }
             }
+          } else if (nextStatus === "ignored") {
+            // Update Save button visual state — job was removed from saved.
+            btn.classList.remove("ljs-save-btn--saved");
+            btn.textContent = "Save to DB";
           }
           toast(isAlready ? ("Cleared: " + STATUS_LABELS[key]) : ("Marked: " + STATUS_LABELS[key]), "ok");
         } catch (err) {

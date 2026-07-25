@@ -141,7 +141,7 @@ function renderSaved() {
     sel.addEventListener("change", async () => {
       const id = sel.getAttribute("data-job-status");
       const job = jobs.find(j => String(j.jobId) === String(id));
-      if (sel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+      if (sel.value === "ignored" && !confirm('Marking as "Ignore" removes the job from saved jobs and drops the description from seen storage (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
         sel.value = (job && job.status) || "";
         return;
       }
@@ -232,7 +232,7 @@ function renderSeen() {
     sel.addEventListener("change", async () => {
       const fp = sel.getAttribute("data-seen-status");
       const s = seen.find(x => x.fingerprint === fp);
-      if (sel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+      if (sel.value === "ignored" && !confirm('Marking as "Ignore" removes the job from saved jobs and drops the description from seen storage (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
         sel.value = (s && s.status) || "";
         return;
       }

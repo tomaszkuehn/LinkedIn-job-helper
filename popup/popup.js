@@ -77,7 +77,7 @@ function renderSaved(list) {
     const statusSel = node.querySelector(".row__status");
     statusSel.value = job.status || "";
     statusSel.addEventListener("change", async () => {
-      if (statusSel.value === "ignored" && !await confirmModal('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+      if (statusSel.value === "ignored" && !await confirmModal('Marking as "Ignore" removes the job from saved jobs and drops the description from seen storage (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
         statusSel.value = job.status || "";
         return;
       }
@@ -113,7 +113,7 @@ function renderSeen(list) {
     const statusSel = node.querySelector(".row__status");
     statusSel.value = s.status || "";
     statusSel.addEventListener("change", async () => {
-      if (statusSel.value === "ignored" && !await confirmModal('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+      if (statusSel.value === "ignored" && !await confirmModal('Marking as "Ignore" removes the job from saved jobs and drops the description from seen storage (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
         statusSel.value = s.status || "";
         return;
       }
