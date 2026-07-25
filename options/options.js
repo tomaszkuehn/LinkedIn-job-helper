@@ -28,6 +28,7 @@ function setSettings(patch) {
   });
 }
 
+const preferredCitiesEl = document.getElementById("preferred-cities");
 const homeAddressEl = document.getElementById("home-address");
 const maxDistanceEl = document.getElementById("max-distance");
 const saveCitiesBtn = document.getElementById("save-cities");
@@ -35,10 +36,12 @@ const citiesSavedEl = document.getElementById("cities-saved");
 
 async function loadCities() {
   const s = await getSettings();
+  preferredCitiesEl.value = s.preferredCities || "";
   homeAddressEl.value = s.homeAddress || "";
   maxDistanceEl.value = Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30;
 }
 saveCitiesBtn.addEventListener("click", async () => {
+  const preferredCities = preferredCitiesEl.value.trim();
   const homeAddress = homeAddressEl.value.trim();
   const maxDistanceKm = Math.max(0, parseInt(maxDistanceEl.value, 10) || 30);
   saveCitiesBtn.disabled = true;
@@ -56,9 +59,9 @@ saveCitiesBtn.addEventListener("click", async () => {
     homeLat = geo.lat;
     homeLon = geo.lon;
   }
-  await setSettings({ homeAddress, homeLat, homeLon, maxDistanceKm });
+  await setSettings({ preferredCities, homeAddress, homeLat, homeLon, maxDistanceKm });
   citiesSavedEl.style.color = "#057642";
-  citiesSavedEl.textContent = "Saved (" + (homeLat !== null ? homeLat.toFixed(4) + ", " + homeLon.toFixed(4) : "no coords") + ")";
+  citiesSavedEl.textContent = "Saved" + (homeLat !== null ? " (" + homeLat.toFixed(4) + ", " + homeLon.toFixed(4) + ")" : "");
   saveCitiesBtn.disabled = false;
   setTimeout(() => (citiesSavedEl.textContent = ""), 4000);
 });

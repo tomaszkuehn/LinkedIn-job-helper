@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   homeLat: null,                  // cached geocode result (latitude)
   homeLon: null,                  // cached geocode result (longitude)
   maxDistanceKm: 30,              // max acceptable haversine distance from home
+  preferredCities: "",            // comma-separated list of preferred cities for onsite/hybrid
   lastBackupAt: null,
   lastBackupFile: null,
   lastBackupCount: 0,

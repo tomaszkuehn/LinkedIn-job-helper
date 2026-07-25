@@ -204,36 +204,52 @@
     }
   }
 
+  // Parse a comma-separated string of city names into a normalised lower array.
+  function parseCityList(input) {
+    return String(input || "")
+      .split(",")
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
   // Returns { verdict, reason, distanceKm }
+  // preferredCities: string (comma-separated) or array
   // jobCoords: [lat, lon] | null  — geocoded job location (only if precise)
   // homeCoords: [lat, lon] | null  — geocoded home point (stored in settings)
-  function evaluatePreference(workplaceType, city, jobCoords, homeCoords, maxDistanceKm) {
+  function evaluatePreference(workplaceType, city, preferredCities, jobCoords, homeCoords, maxDistanceKm) {
     if (workplaceType === "remote") {
       return { verdict: "good", reason: "Remote — always acceptable", distanceKm: null };
     }
     if (!workplaceType) {
       return { verdict: "neutral", reason: "Workplace type unknown", distanceKm: null };
     }
-    if (!homeCoords || !Array.isArray(homeCoords) || homeCoords.length !== 2) {
-      return { verdict: "neutral", reason: workplaceType + " — set your home address in Options to enable distance check", distanceKm: null };
+    const cities = Array.isArray(preferredCities)
+      ? preferredCities.map(c => String(c).trim().toLowerCase()).filter(Boolean)
+      : parseCityList(preferredCities);
+    if (cities.length === 0) {
+      return { verdict: "neutral", reason: workplaceType + " — no preferred cities set in Options", distanceKm: null };
     }
     const where = city ? city : "unknown city";
-    if (!jobCoords || !Array.isArray(jobCoords) || jobCoords.length !== 2) {
-      // No precise location (postcode/street) — don't show distance, don't red-banner.
-      return { verdict: "neutral", reason: workplaceType + " in " + where + " — no precise address (postcode/street) to measure from", distanceKm: null };
+    const cityLower = String(city || "").trim().toLowerCase();
+    const matches = cityLower && cities.includes(cityLower);
+    // Distance (optional) — only if we have both precise job coords and home coords.
+    let distStr = "";
+    let distKm = null;
+    if (jobCoords && homeCoords && Array.isArray(jobCoords) && Array.isArray(homeCoords)
+        && jobCoords.length === 2 && homeCoords.length === 2) {
+      const max = Number.isFinite(maxDistanceKm) && maxDistanceKm > 0 ? maxDistanceKm : 30;
+      distKm = haversineKm(jobCoords, homeCoords);
+      if (distKm !== null) {
+        distStr = " (" + distKm + " km from home" + (distKm <= max ? ", ≤ " + max : ", > " + max) + " km)";
+      }
     }
-    const max = Number.isFinite(maxDistanceKm) && maxDistanceKm > 0 ? maxDistanceKm : 30;
-    const d = haversineKm(jobCoords, homeCoords);
-    if (d === null) {
-      return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure distance", distanceKm: null };
+    if (matches) {
+      return { verdict: "good", reason: workplaceType + " in " + where + " — matches your preferred cities" + distStr, distanceKm: distKm };
     }
-    if (d <= max) {
-      return { verdict: "good", reason: workplaceType + " — " + d + " km from home (≤ " + max + " km)", distanceKm: d };
-    }
-    return { verdict: "bad", reason: workplaceType + " — " + d + " km from home (> " + max + " km)", distanceKm: d };
+    return { verdict: "bad", reason: workplaceType + " in " + where + " — not in your preferred cities (" + cities.join(", ") + ")" + distStr, distanceKm: distKm };
   }
 
-  async function getHomeLocation() {
+  async function getSettingsSnapshot() {
     return new Promise((resolve) => {
       try {
         chrome.storage.local.get(KEY_SETTINGS, (res) => {
@@ -241,9 +257,13 @@
           const lat = Number.isFinite(s.homeLat) ? s.homeLat : null;
           const lon = Number.isFinite(s.homeLon) ? s.homeLon : null;
           const homeCoords = (lat !== null && lon !== null) ? [lat, lon] : null;
-          resolve({ homeCoords, maxDistanceKm: Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30 });
+          resolve({
+            preferredCities: s.preferredCities || "",
+            homeCoords,
+            maxDistanceKm: Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30,
+          });
         });
-      } catch (e) { resolve({ homeCoords: null, maxDistanceKm: 30 }); }
+      } catch (e) { resolve({ preferredCities: "", homeCoords: null, maxDistanceKm: 30 }); }
     });
   }
 
@@ -783,9 +803,10 @@
         if (injectedForJobId === String(jobId)) refreshPreferenceBanner(root, jobId);
       }, 1500);
     }
-    getHomeLocation().then(async ({ homeCoords, maxDistanceKm }) => {
+    getSettingsSnapshot().then(async ({ preferredCities, homeCoords, maxDistanceKm }) => {
       // Geocode the job location only if it contains a postcode or street address.
-      // City-only locations don't get a distance (per user request).
+      // City-only locations still get green/red based on preferredCities match,
+      // but no distance is appended.
       let jobCoords = null;
       const locStr = meta.location || "";
       if (meta.workplaceType && meta.workplaceType !== "remote" && homeCoords && hasPreciseLocation(locStr)) {
@@ -793,10 +814,10 @@
         jobCoords = await geocodeJobLocation(locStr);
         console.log("[LJS] preference: geocoded job coords:", jobCoords);
       }
-      const ev = evaluatePreference(meta.workplaceType, meta.city, jobCoords, homeCoords, maxDistanceKm);
-      console.log("[LJS] preference verdict:", ev, "homeCoords:", homeCoords, "jobCoords:", jobCoords, "maxDistanceKm:", maxDistanceKm);
+      const ev = evaluatePreference(meta.workplaceType, meta.city, preferredCities, jobCoords, homeCoords, maxDistanceKm);
+      console.log("[LJS] preference verdict:", ev, "preferredCities:", preferredCities, "homeCoords:", homeCoords, "jobCoords:", jobCoords, "maxDistanceKm:", maxDistanceKm);
       removePrefBanner();
-      // Show banner for good and bad. For neutral (unknown workplace / no home city),
+      // Show banner for good and bad. For neutral (unknown workplace / no cities),
       // show an informational banner so the user sees the feature is active.
       const banner = document.createElement("div");
       banner.id = PREF_BANNER_ID;
