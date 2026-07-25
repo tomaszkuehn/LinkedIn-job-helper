@@ -68,14 +68,24 @@
   };
 
   // Compute detailFingerprint for current detail, get/create seen entry, set status.
+  // Status lookup/match uses cardFingerprint (title+company) so it's stable whether
+  // or not the description has loaded yet — detailFingerprint depends on descriptionText
+  // and would produce different keys before vs after the description renders.
   async function setCurrentJobStatus(meta, status) {
     if (status && !VALID_STATUSES.has(status)) throw new Error("Invalid status: " + status);
-    const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText || "");
     const cfp = await cardFingerprint(meta.title, meta.company);
+    const fp = meta.descriptionText
+      ? await detailFingerprint(meta.title, meta.company, meta.descriptionText)
+      : null;
     const seen = await storageGet(KEY_SEEN);
-    let entry = seen[fp];
-    if (!entry) {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
+
+    // Apply status to: (a) the detail entry if it exists/gets created, and
+    // (b) any other seen entries sharing the same cardFingerprint (e.g. previous
+    // view before description loaded, or older repost entries).
+    const matches = Object.values(seen).filter(e => e.cardFingerprint === cfp);
+    let entry = fp ? seen[fp] : null;
+    if (fp && !entry) {
       entry = {
         fingerprint: fp,
         cardFingerprint: cfp,
@@ -90,23 +100,32 @@
         status: "",
         statusSetAt: null,
       };
+      seen[fp] = entry;
+      matches.push(entry);
     }
-    entry.status = status || "";
-    entry.statusSetAt = status ? new Date().toISOString() : null;
-    // "ignored" strips description to save space; fingerprint + metadata kept for repost detection.
-    if (status === "ignored") {
-      entry.descriptionText = "";
-      entry.descriptionHtml = "";
+
+    // Apply status to all matching entries (including the detail entry).
+    for (const e of matches) {
+      e.status = status || "";
+      e.statusSetAt = status ? now : null;
+      if (status === "ignored") {
+        e.descriptionText = "";
+        e.descriptionHtml = "";
+      }
+      seen[e.fingerprint] = e;
     }
-    seen[fp] = entry;
+
     await storageSet(KEY_SEEN, seen);
-    // Mirror to saved job if present.
+
+    // Mirror to saved jobs if present — match by any jobId across all matching entries.
+    const allJobIds = new Set();
+    for (const e of matches) for (const jid of (e.jobIds || [])) allJobIds.add(String(jid));
     const jobs = await storageGet(KEY_JOBS);
     let jobsChanged = false;
-    for (const jid of entry.jobIds || []) {
+    for (const jid of allJobIds) {
       if (jobs[jid]) {
-        jobs[jid].status = entry.status;
-        jobs[jid].statusSetAt = entry.statusSetAt;
+        jobs[jid].status = status || "";
+        jobs[jid].statusSetAt = status ? now : null;
         if (status === "ignored") {
           jobs[jid].descriptionText = "";
           jobs[jid].descriptionHtml = "";
@@ -115,20 +134,15 @@
       }
     }
     if (jobsChanged) await storageSet(KEY_JOBS, jobs);
-    return entry;
+    return entry || (matches[0] || null);
   }
 
   async function getCurrentJobStatus(meta) {
-    if (!meta.descriptionText) {
-      // Fall back to cardFingerprint-only lookup (status set before description loaded).
-      const cfp = await cardFingerprint(meta.title, meta.company);
-      const matches = await getAllSeenByCardFp(cfp);
-      if (matches.length) return matches[0].status || "";
-      return "";
-    }
-    const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
-    const entry = await getSeenByFp(fp);
-    return (entry && entry.status) || "";
+    // Always look up by cardFingerprint — works whether description loaded or not.
+    const cfp = await cardFingerprint(meta.title, meta.company);
+    const matches = await getAllSeenByCardFp(cfp);
+    if (matches.length) return matches[0].status || "";
+    return "";
   }
 
   // ---------- Fingerprinty ----------
@@ -284,15 +298,16 @@
       const existing = await getJob(meta.jobId);
       let status = (existing && existing.status) || "";
       let statusSetAt = (existing && existing.statusSetAt) || null;
-      // If job has no status yet, check the seen entry (user may have marked Apply
-      // before clicking Save — the status lives on the seen entry keyed by fingerprint).
-      if (!status && meta.descriptionText) {
+      // If job has no status yet, check seen entries by cardFingerprint (title+company).
+      // cardFingerprint is stable whether or not the description has loaded, unlike
+      // detailFingerprint which depends on descriptionText.
+      if (!status) {
         try {
-          const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
-          const seenEntry = await getSeenByFp(fp);
-          if (seenEntry && seenEntry.status) {
-            status = seenEntry.status;
-            statusSetAt = seenEntry.statusSetAt || null;
+          const cfp = await cardFingerprint(meta.title, meta.company);
+          const matches = await getAllSeenByCardFp(cfp);
+          if (matches.length && matches[0].status) {
+            status = matches[0].status;
+            statusSetAt = matches[0].statusSetAt || null;
           }
         } catch (e) { console.warn("[LJS] status lookup from seen failed", e); }
       }
