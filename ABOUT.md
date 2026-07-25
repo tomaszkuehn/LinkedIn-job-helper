@@ -1,65 +1,98 @@
 # LinkedIn Job Helper
 
-A Brave browser extension (Manifest V3) for managing LinkedIn job listings more effectively. Save jobs to a local in-browser database, detect re-posted listings even after LinkedIn assigns a new job ID, and back the database up to a file automatically.
+A Brave browser extension (Manifest V3) for managing LinkedIn job listings more effectively. Save jobs to a local in-browser database, detect re-posted listings even after LinkedIn assigns a new job ID, mark jobs with quick statuses, and back the database up to a file automatically.
 
 ## Features
 
-- **Save to local database** — injects a "Save to DB" button in the LinkedIn job detail panel. Scrapes title, company, location, URL, and the full job description (`#job-details`).
+- **Save to local database** — injects a "Save to DB" button in the LinkedIn job detail panel. Scrapes title, company, location, URL, and the full job description (`#job-details`). Status set before saving (Apply / Consider / German / Ignore) is carried over to the saved job.
 - **Repost detection** — identifies already-seen jobs even when re-posted with a new `jobId`, using two content fingerprints:
-  - `cardFingerprint` (loose): title + company — for fast badge matching on the list view
+  - `cardFingerprint` (loose): title + company — for fast badge matching on the list view and for status matching (stable whether or not the description has loaded)
   - `detailFingerprint` (strict): title + company + description text — for reliable repost detection
-- **Auto-registration of seen jobs** — browsing a job detail panel auto-records it (debounced 2s) into a separate `seen` store.
+- **Auto-registration of seen jobs** — browsing a job detail panel auto-records it (debounced 2s) into a separate `seen` store. Full description text is stored for seen entries too (configurable retention below).
 - **Visual cues**:
   - List cards: `👁 seen N days ago` badge, or `🔁 seen N days ago` when matched under a different jobId
   - Detail panel: top banner when the current job is a repost
+- **Quick status actions** — mark any job (saved or just seen) as Apply / Consider / German / Ignore:
+  - Four action buttons injected in the LinkedIn detail panel, in a separate toolbar block below LinkedIn's native action row (LinkedIn's original layout is preserved)
+  - Status dropdowns in popup rows and options tables
+  - Filtering by status in the options page (All / Apply / Consider / German / Ignored / No status)
+  - "Ignored" status drops the description text from storage to save space (fingerprint + metadata retained for repost detection). Confirmation dialog before applying — warns that the description will be removed.
+  - Status is matched by `cardFingerprint` so it works whether or not the description has loaded (e.g. user marks Consider before the description renders, then clicks Save — the status carries over).
+  - Status is mirrored between the saved job and all seen entries sharing the same `cardFingerprint`.
+- **Job preview modal** — in the options page, a "👁 View" button on each Saved/Seen row opens a modal with formatted title, company, location, status, dates, LinkedIn link, and rendered description (HTML or plain-text fallback). Copy buttons. Close via ✕, backdrop click, or Esc.
 - **Auto-backup to file** — after every database change (debounced 2s), the service worker writes a JSON snapshot to `Downloads/linkedin-jobs-backup/`:
   - `overwrite` mode → single `linkedin-jobs-latest.json`
   - `timestamp` mode → sequential `linkedin-jobs-2026-07-25T13-45-12.json` files
 - **Auto-prune of seen jobs** — seen entries older than the retention window (default 90 days; configurable 30/60/90/180/365/off) are automatically removed from `chrome.storage.local` to stay under the ~10 MB quota. Full data is preserved in backup files. Runs at SW startup and debounced after seen-store changes.
-- **Storage usage indicator** — popup shows bytes used / ~10 MB limit with color-coded bar (green/amber/red).
-- **Import / restore** — load a backup or export file back into the database (replaces current data, with confirmation).
-- **Quick status actions** — mark any job (saved or just seen) as Apply / Consider / German / Ignore:
-  - Four action buttons injected in the LinkedIn detail panel next to "Save to DB"
-  - Status dropdowns in popup rows and options tables
-  - Filtering by status in the options page (All / Apply / Consider / German / Ignored / No status)
-  - "Ignored" status drops the description text from storage to save space (fingerprint + metadata retained for repost detection)
-  - Status is mirrored between the saved job and its seen entry
-- **Popup UI** — three tabs: **Saved**, **Seen**, **Backup**. Search, copy content, delete, export JSON/CSV.
-- **Options page** — full tabular view of saved and seen jobs, import/export, clear-all.
+- **Storage usage indicator** — popup shows bytes used / ~10 MB limit with color-coded bar (green/amber/red) and a contextual hint.
+- **Import / restore** — load a backup or export file back into the database (replaces current data, with confirmation). Handles legacy array format, `{saved, seen}` array format, and backup map format.
+- **Inline confirm dialogs** — the popup uses custom modal dialogs instead of `window.confirm()`, which hangs MV3 popups when they lose focus. Esc cancels, Enter confirms.
+- **Popup UI** — three tabs: **Saved**, **Seen**, **Backup**. Search, status dropdown, copy content, delete/forget, export JSON/CSV. Quick status change with toast feedback.
+- **Options page** — full tabular view of saved and seen jobs with status column, status filter, search, preview modal, import/export (JSON + CSV with status column), clear-all.
 
 ## Storage
 
 Data is held entirely in `chrome.storage.local` (the extension's own storage, not the page's `indexedDB`). This avoids Brave's storage partitioning, which blocks `indexedDB` access from content scripts (`requestStorageAccess: Permission denied`).
 
 Keys:
-- `ljs_jobs` — map of `jobId` → saved job
-- `ljs_seen` — map of `fingerprint` → seen-job entry
-- `ljs_settings` — backup settings and last-backup metadata
+- `ljs_jobs` — map of `jobId` → saved job (includes `status`, `statusSetAt`)
+- `ljs_seen` — map of `fingerprint` → seen-job entry (includes `status`, `statusSetAt`, full `descriptionText`/`descriptionHtml` unless status is `ignored`)
+- `ljs_settings` — backup settings, retention window, last-backup and last-prune metadata
 
 Data does **not** sync between devices. Use the backup file to transfer or restore.
+
+## Job record schema
+
+Saved job (`ljs_jobs[jobId]`):
+```
+{
+  jobId, title, company, location, url,
+  descriptionHtml, descriptionText,
+  savedAt, sourceUrl,
+  status: "" | "apply" | "to-consider" | "german" | "ignored",
+  statusSetAt: ISO-string | null
+}
+```
+
+Seen entry (`ljs_seen[fingerprint]`):
+```
+{
+  fingerprint, cardFingerprint,
+  title, company,
+  descriptionText, descriptionHtml,   // empty when status === "ignored"
+  jobIds: […],
+  firstSeenAt, lastSeenAt, seenCount,
+  status: "" | "apply" | "to-consider" | "german" | "ignored",
+  statusSetAt: ISO-string | null
+}
+```
 
 ## Architecture
 
 ```
 manifest.json
-background/sw.js          service worker: auto-backup, settings, message hub
+background/sw.js          service worker: auto-backup, auto-prune, settings, message hub
 content/job-saver.js      content script (self-contained, no ES imports):
-                          storage + fingerprints + scraper + save button + seen badges + repost banner
-content/job-saver.css     styles for injected button, badges, toast, banner
-lib/db.js                 storage backend (chrome.storage.local) used by popup/options
+                          storage + fingerprints + scraper + save button + status toolbar
+                          + seen badges + repost banner
+content/job-saver.css     styles for injected toolbar, action buttons, badges, toast, banner
+lib/db.js                 storage backend (chrome.storage.local) + status helpers
+                          (setJobStatus, setSeenStatus, ensureSeen, getAllSeenByStatus, …)
+                          used by popup/options
 lib/scraper.js            scraper helpers (legacy, popup/options)
-popup/popup.{html,css,js} toolbar popup: Saved / Seen / Backup tabs
-options/options.{html,js} full-page options: tables, import/export, clear
+popup/popup.{html,css,js} toolbar popup: Saved / Seen / Backup tabs + inline confirm modal
+options/options.{html,js} full-page options: tables with status column + filter, preview modal,
+                          import/export (JSON + CSV), clear-all
 ```
 
-Content scripts in MV3 cannot use ES `import`, so `content/job-saver.js` is self-contained (inlined copy of the storage and fingerprint logic from `lib/db.js`).
+Content scripts in MV3 cannot use ES `import`, so `content/job-saver.js` is self-contained (inlined copy of the storage, fingerprint, and status logic from `lib/db.js`).
 
 ## Install (development)
 
 1. Open `brave://extensions`
 2. Enable **Developer mode** (top-right)
 3. Click **Load unpacked** and select this folder
-4. Visit `linkedin.com/jobs/search` — open any job to see the "Save to DB" button in the detail panel
+4. Visit `linkedin.com/jobs/search` — open any job to see the toolbar (Save to DB + Apply / Consider / German / Ignore) in the detail panel, below LinkedIn's native Easy Apply / Save buttons
 
 ## Permissions
 
@@ -74,6 +107,7 @@ No remote permissions. No data leaves the browser.
 
 - `chrome.storage.local` has a ~10 MB quota — enough for tens of thousands of jobs with full description text. Auto-prune of seen entries (default 90 days) keeps growth bounded; backup files are the durable source of truth.
 - Fingerprint matching is heuristic: minor edits to the job description by the poster produce a different `detailFingerprint` and won't be flagged as a repost. `cardFingerprint` (title + company only) catches re-posts under a new jobId even with edited descriptions, at the cost of occasional false positives for genuinely different jobs with the same title and company.
+- Status is matched by `cardFingerprint` (title + company). Two genuinely different jobs with identical title + company share a status. In practice this is rare and the trade-off is acceptable (status is per-job-listing in spirit, but the matcher is intentionally loose so status survives a re-post with edited description).
 
 ## License
 
