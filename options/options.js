@@ -47,8 +47,8 @@ function renderSaved() {
       <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
       <td><div class="desc">${escHtml((job.descriptionText || "").slice(0, 400))}${(job.descriptionText || "").length > 400 ? "…" : ""}</div></td>
       <td>
-        <button data-view-saved="${escAttr(job.jobId)}" class="ghost">View</button>
-        <button data-del-saved="${escAttr(job.jobId)}" class="danger">Delete</button>
+        <button data-view-saved="${escAttr(job.jobId)}" class="ghost">👁 View</button>
+        <button data-del-saved="${escAttr(job.jobId)}" class="danger">🗑 Delete</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -116,8 +116,8 @@ function renderSeen() {
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
       <td><div class="desc">${escHtml((s.descriptionText || "").slice(0, 400))}${(s.descriptionText || "").length > 400 ? "…" : ""}</div></td>
       <td>
-        <button data-view-seen="${escAttr(s.fingerprint)}" class="ghost">View</button>
-        <button data-del-seen="${escAttr(s.fingerprint)}" class="danger">Forget</button>
+        <button data-view-seen="${escAttr(s.fingerprint)}" class="ghost">👁 View</button>
+        <button data-del-seen="${escAttr(s.fingerprint)}" class="danger">🗑 Forget</button>
       </td>
     `;
     tbody.appendChild(tr);

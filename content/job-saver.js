@@ -267,7 +267,7 @@
   async function handleSave(btn, meta) {
     btn.disabled = true;
     const original = btn.textContent;
-    btn.textContent = "Zapisuję…";
+    btn.textContent = "Saving…";
     try {
       if (!meta.descriptionHtml) {
         await new Promise(r => setTimeout(r, 600));
@@ -280,6 +280,8 @@
           }
         }
       }
+      // Preserve existing status if job already in DB (e.g. user marked Apply then clicked Save).
+      const existing = await getJob(meta.jobId);
       const job = {
         jobId: meta.jobId,
         title: meta.title,
@@ -290,6 +292,8 @@
         descriptionText: meta.descriptionText || "",
         savedAt: new Date().toISOString(),
         sourceUrl: location.href,
+        status: (existing && existing.status) || "",
+        statusSetAt: (existing && existing.statusSetAt) || null,
       };
       await saveJob(job);
       btn.classList.add("ljs-save-btn--saved");

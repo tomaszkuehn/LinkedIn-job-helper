@@ -75,7 +75,7 @@ function renderSaved(list) {
     const statusSel = node.querySelector(".row__status");
     statusSel.value = job.status || "";
     statusSel.addEventListener("change", async () => {
-      if (statusSel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+      if (statusSel.value === "ignored" && !await confirmModal('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
         statusSel.value = job.status || "";
         return;
       }
@@ -87,7 +87,7 @@ function renderSaved(list) {
       navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
     });
     node.querySelector(".row__delete").addEventListener("click", async () => {
-      if (!confirm(`Delete job "${job.title || job.jobId}"?`)) return;
+      if (!await confirmModal(`Delete job "${job.title || job.jobId}"?`)) return;
       await deleteJob(job.jobId);
       await refresh();
     });
@@ -109,7 +109,7 @@ function renderSeen(list) {
     const statusSel = node.querySelector(".row__status");
     statusSel.value = s.status || "";
     statusSel.addEventListener("change", async () => {
-      if (statusSel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+      if (statusSel.value === "ignored" && !await confirmModal('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
         statusSel.value = s.status || "";
         return;
       }
@@ -121,7 +121,7 @@ function renderSeen(list) {
       navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
     });
     node.querySelector(".row__forget").addEventListener("click", async () => {
-      if (!confirm(`Forget seen job "${s.title || s.fingerprint}"?`)) return;
+      if (!await confirmModal(`Forget seen job "${s.title || s.fingerprint}"?`)) return;
       await deleteSeen(s.fingerprint);
       await refresh();
     });
@@ -149,6 +149,35 @@ function toast(msg) {
   el.style.opacity = "1";
   clearTimeout(toast._t);
   toast._t = setTimeout(() => (el.style.opacity = "0"), 1500);
+}
+
+// Inline confirm modal — replaces window.confirm() which hangs in MV3 popups.
+function confirmModal(msg) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("confirm-modal");
+    const msgEl = document.getElementById("confirm-msg");
+    const ok = document.getElementById("confirm-ok");
+    const cancel = document.getElementById("confirm-cancel");
+    const backdrop = modal.querySelector(".modal__backdrop");
+    msgEl.textContent = msg;
+    modal.hidden = false;
+    const close = (result) => {
+      modal.hidden = true;
+      ok.removeEventListener("click", onOk);
+      cancel.removeEventListener("click", onCancel);
+      backdrop.removeEventListener("click", onCancel);
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    };
+    const onOk = () => close(true);
+    const onCancel = () => close(false);
+    const onKey = (e) => { if (e.key === "Escape") close(false); if (e.key === "Enter") close(true); };
+    ok.addEventListener("click", onOk);
+    cancel.addEventListener("click", onCancel);
+    backdrop.addEventListener("click", onCancel);
+    document.addEventListener("keydown", onKey);
+    ok.focus();
+  });
 }
 
 searchEl.addEventListener("input", render);
@@ -279,7 +308,7 @@ importBtn.addEventListener("click", () => importFile.click());
 importFile.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (!confirm(`Load file "${file.name}"?\nThis will REPLACE the current database (saved + seen).`)) {
+  if (!await confirmModal(`Load file "${file.name}"?\nThis will REPLACE the current database (saved + seen).`)) {
     importFile.value = "";
     return;
   }

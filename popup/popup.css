@@ -107,24 +107,65 @@ h1 { font-size: 15px; margin: 0; }
   white-space: pre-wrap;
   margin: 4px 0;
 }
-.row__actions { display: flex; gap: 6px; margin-top: 6px; }
-.row__actions button {
-  padding: 4px 8px;
+.row__actions { display: flex; gap: 6px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
+.row__actions select {
+  padding: 4px 6px;
   font: inherit;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  font-size: 12px;
+}
+.row__actions button {
+  padding: 4px 10px;
+  font: 12px/1 "Segoe UI", Arial, sans-serif;
   border: 1px solid #ccc;
   background: #fff;
   border-radius: 4px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .row__actions button:hover { background: #f0f0f0; }
+.row__copy, .row__copy-seen { color: #0a66c2; border-color: #0a66c2; }
+.row__copy:hover, .row__copy-seen:hover { background: #e8f1fb; }
 .row__delete, .row__forget { color: #b00020; border-color: #b00020; }
-.row__delete:hover, .row__forget:hover { background: #fee; }
+.row__delete:hover, .row__forget:hover { background: #fde7e9; }
 
 .empty {
   padding: 20px 12px;
   text-align: center;
   color: #777;
 }
+
+/* Inline confirm modal */
+.modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.modal__card {
+  position: relative;
+  background: #fff;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  padding: 16px 18px 14px;
+}
+.modal__msg { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: #1f1f1f; white-space: pre-wrap; }
+.modal__actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal__ok, .modal__cancel {
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  border: 1px solid #ccc;
+}
+.modal__ok { background: #b00020; color: #fff; border-color: #b00020; }
+.modal__ok:hover { background: #8a0019; }
+.modal__cancel { background: #fff; color: #555; }
+.modal__cancel:hover { background: #f0f0f0; }
 
 /* Panel backup */
 .panel {
