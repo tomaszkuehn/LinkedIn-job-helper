@@ -203,6 +203,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
   }
+  if (msg.type === "geocode") {
+    const q = String(msg.query || "").trim();
+    if (!q) { sendResponse({ ok: true, coords: null }); return false; }
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(q);
+    fetch(url, { headers: { "Accept-Language": "en" } })
+      .then(res => res.ok ? res.json() : null)
+      .then(arr => {
+        if (!Array.isArray(arr) || arr.length === 0) { sendResponse({ ok: true, coords: null }); return; }
+        const hit = arr[0];
+        sendResponse({ ok: true, coords: [parseFloat(hit.lat), parseFloat(hit.lon)], label: hit.display_name || q });
+      })
+      .catch(e => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
 });
 
 chrome.runtime.onInstalled.addListener(() => {

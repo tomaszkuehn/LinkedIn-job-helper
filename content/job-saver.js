@@ -180,28 +180,34 @@
   }
 
   // In-memory cache for geocoded job locations (keyed by query string).
-  // Avoids repeated Nominatim hits when navigating between the same jobs.
+  // Avoids repeated requests when navigating between the same jobs.
   const geoCache = new Map();
 
-  async function geocodeJobLocation(query) {
+  // Geocoding runs in the background service worker (content scripts inherit
+  // the page's CSP, which blocks fetch to external origins with
+  // "chrome-extension://invalid/" errors).
+  function geocodeJobLocation(query) {
     const q = String(query || "").trim();
-    if (!q) return null;
-    if (geoCache.has(q)) return geoCache.get(q);
-    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(q);
-    try {
-      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-      if (!res.ok) { geoCache.set(q, null); return null; }
-      const arr = await res.json();
-      if (!Array.isArray(arr) || arr.length === 0) { geoCache.set(q, null); return null; }
-      const hit = arr[0];
-      const coords = [parseFloat(hit.lat), parseFloat(hit.lon)];
-      geoCache.set(q, coords);
-      return coords;
-    } catch (e) {
-      console.warn("[LJS] geocodeJobLocation error", e);
-      geoCache.set(q, null);
-      return null;
-    }
+    if (!q) return Promise.resolve(null);
+    if (geoCache.has(q)) return Promise.resolve(geoCache.get(q));
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ type: "geocode", query: q }, (res) => {
+          if (chrome.runtime.lastError || !res || !res.ok || !res.coords) {
+            geoCache.set(q, null);
+            resolve(null);
+            return;
+          }
+          const coords = res.coords;
+          geoCache.set(q, coords);
+          resolve(coords);
+        });
+      } catch (e) {
+        console.warn("[LJS] geocodeJobLocation error", e);
+        geoCache.set(q, null);
+        resolve(null);
+      }
+    });
   }
 
   // Parse a comma-separated string of city names into a normalised lower array.
