@@ -7,6 +7,45 @@ import {
 let jobs = [];
 let seen = [];
 
+// ----- Preferred cities -----
+const KEY_SETTINGS = "ljs_settings";
+function getSettings() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(KEY_SETTINGS, (res) => resolve(res[KEY_SETTINGS] || {}));
+  });
+}
+function setSettings(patch) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(KEY_SETTINGS, (res) => {
+      const cur = res[KEY_SETTINGS] || {};
+      const next = { ...cur, ...patch };
+      chrome.storage.local.set({ [KEY_SETTINGS]: next }, () => {
+        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+        else resolve(next);
+      });
+    });
+  });
+}
+
+const city1El = document.getElementById("preferred-city-1");
+const city2El = document.getElementById("preferred-city-2");
+const saveCitiesBtn = document.getElementById("save-cities");
+const citiesSavedEl = document.getElementById("cities-saved");
+
+async function loadCities() {
+  const s = await getSettings();
+  const cities = Array.isArray(s.preferredCities) ? s.preferredCities : [];
+  city1El.value = cities[0] || "";
+  city2El.value = cities[1] || "";
+}
+saveCitiesBtn.addEventListener("click", async () => {
+  const cities = [city1El.value.trim(), city2El.value.trim()].filter(Boolean);
+  await setSettings({ preferredCities: cities });
+  citiesSavedEl.textContent = "Saved";
+  setTimeout(() => (citiesSavedEl.textContent = ""), 2000);
+});
+loadCities();
+
 async function refresh() {
   jobs = await getAllJobs();
   jobs.sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));

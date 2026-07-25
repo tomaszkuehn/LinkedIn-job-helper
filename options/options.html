@@ -76,6 +76,17 @@
 <body>
   <h1>LinkedIn Job Saver</h1>
 
+  <h2>Preferences</h2>
+  <div class="toolbar">
+    <label for="preferred-city-1" style="font-weight:600">Preferred city 1:</label>
+    <input id="preferred-city-1" type="text" placeholder="e.g. Hamburg" style="max-width:200px" />
+    <label for="preferred-city-2" style="font-weight:600">Preferred city 2:</label>
+    <input id="preferred-city-2" type="text" placeholder="e.g. Berlin" style="max-width:200px" />
+    <button id="save-cities">Save cities</button>
+    <span id="cities-saved" style="color:#057642;font-size:12px"></span>
+  </div>
+  <p style="font-size:12px;color:#777;margin:4px 0 16px">Remote jobs are always acceptable. On-site / hybrid jobs must be in one of these cities to get a green banner in the LinkedIn detail panel.</p>
+
   <h2>Saved jobs</h2>
   <p class="count" id="saved-count"></p>
   <div class="toolbar">

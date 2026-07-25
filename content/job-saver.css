@@ -59,6 +59,25 @@
 .ljs-action-german.ljs-action-btn--active    { background: #0a66c2; }
 .ljs-action-ignored.ljs-action-btn--active   { background: #6b6b6b; }
 
+/* Preference banner (green/red) below toolbar */
+.ljs-pref-banner {
+  margin: 6px 0 8px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font: 600 13px/1.4 "Segoe UI", Arial, sans-serif;
+  border: 1px solid transparent;
+}
+.ljs-pref-banner--good {
+  background: #e6f4ec;
+  color: #057642;
+  border-color: #bfe3cf;
+}
+.ljs-pref-banner--bad {
+  background: #fde7e9;
+  color: #b00020;
+  border-color: #f5b5bd;
+}
+
 /* Toast */
 .ljs-toast {
   position: fixed;

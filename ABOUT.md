@@ -8,6 +8,10 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 - **Workplace type & city detection** — extracts `workplaceType` (remote / hybrid / onsite) and `city` from:
   1. Location metadata (already scraped) — e.g. "Hamburg, Hamburg, Germany (Hybrid)" → workplaceType=hybrid, city=Hamburg
   2. Description text fallback (regex over "Location:" / "Workplace:" sections and phrases like "fully remote", "work from home", "on-site")
+- **Preferred cities + preference banner** — set up to 2 preferred cities in Options → Preferences. The content script shows a banner below the action toolbar in the LinkedIn detail panel:
+  - Green ✓ — remote (always acceptable), or onsite/hybrid in one of your preferred cities
+  - Red ✗ — onsite/hybrid not in a preferred city
+  - No banner — workplace type unknown or no preferred cities set
 - **Repost detection** — identifies already-seen jobs even when re-posted with a new `jobId`, using two content fingerprints:
   - `cardFingerprint` (loose): title + company — for fast badge matching on the list view and for status matching (stable whether or not the description has loaded)
   - `detailFingerprint` (strict): title + company + description text — for reliable repost detection

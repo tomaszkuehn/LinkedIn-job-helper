@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
   autoBackup: true,
   backupMode: "overwrite",      // "overwrite" | "timestamp"
   seenRetentionDays: 90,         // 0 = wyłącz auto-prune
+  preferredCities: [],            // cities preferred for onsite/hybrid; remote always OK
   lastBackupAt: null,
   lastBackupFile: null,
   lastBackupCount: 0,

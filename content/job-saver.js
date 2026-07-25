@@ -118,6 +118,35 @@
     return { workplaceType, city };
   }
 
+  function evaluatePreference(workplaceType, city, preferredCities) {
+    const cities = (preferredCities || []).map(c => String(c || "").trim().toLowerCase()).filter(Boolean);
+    if (workplaceType === "remote") {
+      return { verdict: "good", reason: "Remote — always acceptable" };
+    }
+    if (!workplaceType) {
+      return { verdict: "neutral", reason: "Workplace type unknown" };
+    }
+    if (cities.length === 0) {
+      return { verdict: "neutral", reason: workplaceType + " — no preferred cities set" };
+    }
+    if (city && cities.includes(city.toLowerCase())) {
+      return { verdict: "good", reason: workplaceType + " in " + city + " — matches your preferred city" };
+    }
+    const where = city ? city : "unknown city";
+    return { verdict: "bad", reason: workplaceType + " in " + where + " — not in your preferred cities (" + preferredCities.join(", ") + ")" };
+  }
+
+  async function getPreferredCities() {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get(KEY_SETTINGS, (res) => {
+          const s = res[KEY_SETTINGS] || {};
+          resolve(Array.isArray(s.preferredCities) ? s.preferredCities : []);
+        });
+      } catch (e) { resolve([]); }
+    });
+  }
+
   // Compute detailFingerprint for current detail, get/create seen entry, set status.
   // Status lookup/match uses cardFingerprint (title+company) so it's stable whether
   // or not the description has loaded yet — detailFingerprint depends on descriptionText
@@ -411,6 +440,7 @@
   function removeButton() {
     const t = document.getElementById(TOOLBAR_ID);
     if (t) t.remove();
+    removePrefBanner();
     injectedForJobId = null;
   }
 
@@ -529,6 +559,38 @@
     } else {
       root.appendChild(toolbar);
     }
+
+    // Preference banner: green if remote or (onsite/hybrid in a preferred city),
+    // red if onsite/hybrid not in a preferred city, neutral/none otherwise.
+    refreshPreferenceBanner(root, jobId);
+  }
+
+  const PREF_BANNER_ID = "ljs-pref-banner";
+
+  function removePrefBanner() {
+    const b = document.getElementById(PREF_BANNER_ID);
+    if (b) b.remove();
+  }
+
+  function refreshPreferenceBanner(root, jobId) {
+    const meta = scrapeFromDetail(root, jobId);
+    if (!meta.title && !meta.company) { removePrefBanner(); return; }
+    getPreferredCities().then(preferredCities => {
+      const ev = evaluatePreference(meta.workplaceType, meta.city, preferredCities);
+      removePrefBanner();
+      if (ev.verdict === "neutral") return; // no banner for unknown workplace type
+      const banner = document.createElement("div");
+      banner.id = PREF_BANNER_ID;
+      banner.className = "ljs-pref-banner ljs-pref-banner--" + ev.verdict;
+      const icon = ev.verdict === "good" ? "✓" : "✗";
+      banner.textContent = icon + " " + ev.reason;
+      // Insert after the toolbar if present, else after the action row.
+      const toolbar = document.getElementById(TOOLBAR_ID);
+      const anchor = toolbar ? toolbar.parentElement : root;
+      const ref = toolbar ? toolbar.nextSibling : null;
+      if (ref) anchor.insertBefore(banner, ref);
+      else anchor.appendChild(banner);
+    }).catch(() => {});
   }
 
   // ---------- Auto-registering seen jobs (detail) ----------
