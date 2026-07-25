@@ -5,6 +5,24 @@
 (function () {
   "use strict";
 
+  // ---------- Context validity guard ----------
+  // When the extension is reloaded (dev mode), the old content script's
+  // chrome.* APIs become invalid ("Extension context invalidated").
+  // We detect this and no-op all subsequent operations instead of throwing.
+  let ctxValid = true;
+  function checkCtx() {
+    if (!ctxValid) return false;
+    try {
+      // chrome.runtime.id throws when context is invalidated.
+      void chrome.runtime.id;
+      return true;
+    } catch (e) {
+      ctxValid = false;
+      console.warn("[LJS] Extension context invalidated — content script disabled. Reload the LinkedIn page.");
+      return false;
+    }
+  }
+
   // ---------- Storage: chrome.storage.local ----------
   // IndexedDB strony jest partycjonowany/blokowany przez Brave (requestStorageAccess denied).
   // chrome.storage.local to storage rozszerzenia — omija partycjonowanie strony.
@@ -14,8 +32,9 @@
 
   function storageGet(key) {
     return new Promise((resolve) => {
+      if (!checkCtx()) return resolve({});
       try {
-        chrome.storage.local.get(key, (res) => resolve(res[key] || {}));
+        chrome.storage.local.get(key, (res) => resolve((res && res[key]) || {}));
       } catch (e) {
         console.warn("[LJS] storage.get error", e);
         resolve({});
@@ -24,6 +43,7 @@
   }
   function storageSet(key, value) {
     return new Promise((resolve, reject) => {
+      if (!checkCtx()) return reject(new Error("Extension context invalidated"));
       try {
         chrome.storage.local.set({ [key]: value }, () => {
           if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
@@ -190,10 +210,11 @@
     const q = String(query || "").trim();
     if (!q) return Promise.resolve(null);
     if (geoCache.has(q)) return Promise.resolve(geoCache.get(q));
+    if (!checkCtx()) return Promise.resolve(null);
     return new Promise((resolve) => {
       try {
         chrome.runtime.sendMessage({ type: "geocode", query: q }, (res) => {
-          if (chrome.runtime.lastError || !res || !res.ok || !res.coords) {
+          if (!checkCtx() || chrome.runtime.lastError || !res || !res.ok || !res.coords) {
             geoCache.set(q, null);
             resolve(null);
             return;
@@ -1104,12 +1125,13 @@
     }
   }
 
-  const observer = new MutationObserver(scheduleScan);
+  const observer = new MutationObserver(() => { if (checkCtx()) scheduleScan(); });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   // Reakcja na zmianę URL (SPA).
   let lastUrl = location.href;
   setInterval(() => {
+    if (!checkCtx()) return;
     if (location.href !== lastUrl) {
       lastUrl = location.href;
       injectedForJobId = null;
@@ -1121,5 +1143,5 @@
   }, 500);
 
   scanAll();
-  console.log("[LJS] content script active (v0.3 — chrome.storage.local backend)");
+  console.log("[LJS] content script active (chrome.storage.local backend)");
 })();
