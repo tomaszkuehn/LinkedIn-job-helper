@@ -761,8 +761,8 @@
 
     toolbar.appendChild(btn);
 
-    // Quick-action buttons.
-    const ACTIONS = ["apply", "applied", "to-consider", "german", "ignored"];
+    // Quick-action buttons. "applied" is options-only (set via popup/options dropdowns).
+    const ACTIONS = ["apply", "to-consider", "german", "ignored"];
     const actionBtns = {};
     for (const key of ACTIONS) {
       const ab = document.createElement("button");
