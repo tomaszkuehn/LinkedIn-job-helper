@@ -132,6 +132,8 @@ h1 { font-size: 15px; margin: 0; }
 .row__actions button:hover { background: #f0f0f0; }
 .row__copy, .row__copy-seen { color: #0a66c2; border-color: #0a66c2; }
 .row__copy:hover, .row__copy-seen:hover { background: #e8f1fb; }
+.row__to-saved { color: #057642; border-color: #057642; }
+.row__to-saved:hover { background: #e6f4ee; }
 .row__delete, .row__forget { color: #b00020; border-color: #b00020; }
 .row__delete:hover, .row__forget:hover { background: #fde7e9; }
 

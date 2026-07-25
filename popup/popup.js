@@ -1,4 +1,4 @@
-import { getAllJobs, deleteJob, getAllSeen, deleteSeen, saveJob, saveSeen, setJobStatus, setSeenStatus } from "../lib/db.js";
+import { getAllJobs, deleteJob, getAllSeen, deleteSeen, saveJob, saveSeen, setJobStatus, setSeenStatus, seenToSaved } from "../lib/db.js";
 
 const listEl = document.getElementById("list");
 const countEl = document.getElementById("count");
@@ -121,6 +121,19 @@ function renderSeen(list) {
     node.querySelector(".row__copy-seen").addEventListener("click", () => {
       const txt = [s.title, s.company, s.descriptionText].filter(Boolean).join("\n");
       navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
+    });
+    const toSavedBtn = node.querySelector(".row__to-saved");
+    toSavedBtn.addEventListener("click", async () => {
+      toSavedBtn.disabled = true;
+      try {
+        await seenToSaved(s.fingerprint);
+        toast("Copied to saved: " + (s.title || s.fingerprint));
+        await refresh();
+      } catch (e) {
+        alert("Copy error: " + e.message);
+      } finally {
+        toSavedBtn.disabled = false;
+      }
     });
     node.querySelector(".row__forget").addEventListener("click", async () => {
       if (!await confirmModal(`Forget seen job "${s.title || s.fingerprint}"?`)) return;

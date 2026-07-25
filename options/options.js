@@ -3,6 +3,7 @@ import {
   getAllSeen, deleteSeen, saveSeen, clearSeen,
   setJobStatus, setSeenStatus,
   geocodeAddress,
+  seenToSaved,
 } from "../lib/db.js";
 
 let jobs = [];
@@ -189,6 +190,7 @@ function renderSeen() {
       <td><div class="desc">${escHtml((s.descriptionText || "").slice(0, 400))}${(s.descriptionText || "").length > 400 ? "…" : ""}</div></td>
       <td>
         <button data-view-seen="${escAttr(s.fingerprint)}" class="ghost">👁 View</button>
+        <button data-to-saved="${escAttr(s.fingerprint)}" class="ghost" style="color:#057642;border-color:#057642">↳ To saved</button>
         <button data-del-seen="${escAttr(s.fingerprint)}" class="danger">🗑 Forget</button>
       </td>
     `;
@@ -207,6 +209,21 @@ function renderSeen() {
       const fp = btn.getAttribute("data-view-seen");
       const s = seen.find(x => x.fingerprint === fp);
       if (s) showPreview(s, "seen");
+    });
+  });
+  tbody.querySelectorAll("[data-to-saved]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const fp = btn.getAttribute("data-to-saved");
+      btn.disabled = true;
+      try {
+        const job = await seenToSaved(fp);
+        if (!job) { alert("Seen entry not found"); return; }
+        await refresh();
+      } catch (e) {
+        alert("Copy error: " + e.message);
+      } finally {
+        btn.disabled = false;
+      }
     });
   });
   tbody.querySelectorAll("[data-seen-status]").forEach(sel => {

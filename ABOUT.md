@@ -28,6 +28,7 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
   - Status is matched by `cardFingerprint` so it works whether or not the description has loaded (e.g. user marks Consider before the description renders, then clicks Save — the status carries over).
   - Status is mirrored between the saved job and all seen entries sharing the same `cardFingerprint`.
 - **Job preview modal** — in the options page, a "👁 View" button on each Saved/Seen row opens a modal with formatted title, company, location, status, dates, LinkedIn link, and rendered description (HTML or plain-text fallback). Copy buttons. Close via ✕, backdrop click, or Esc.
+- **Copy seen → saved** — a "↳ To saved" button (popup and options Seen tab) copies a seen entry into the saved-jobs store. Useful when you want to keep a job you've only browsed without re-opening the detail to click Save. The job's jobId is taken from the seen entry's first `jobIds[]` entry, and status/description are carried over.
 - **Auto-backup to file** — after every database change (debounced 2s), the service worker writes a JSON snapshot to `Downloads/linkedin-jobs-backup/`:
   - `overwrite` mode → single `linkedin-jobs-latest.json`
   - `timestamp` mode → sequential `linkedin-jobs-2026-07-25T13-45-12.json` files
