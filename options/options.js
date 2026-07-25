@@ -114,7 +114,7 @@ function renderSaved() {
         </select>
       </td>
       <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
-      <td><div class="desc">${escHtml((job.descriptionText || "").slice(0, 400))}${(job.descriptionText || "").length > 400 ? "…" : ""}</div></td>
+      <td>${descLabel(job.descriptionText)}</td>
       <td>
         <button data-view-saved="${escAttr(job.jobId)}" class="ghost">👁 View</button>
         <button data-del-saved="${escAttr(job.jobId)}" class="danger">🗑 Delete</button>
@@ -189,7 +189,7 @@ function renderSeen() {
       <td>${s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("en-US") : "?"}</td>
       <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?"}</td>
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
-      <td><div class="desc">${escHtml((s.descriptionText || "").slice(0, 400))}${(s.descriptionText || "").length > 400 ? "…" : ""}</div></td>
+      <td>${descLabel(s.descriptionText)}</td>
       <td>
         <button data-view-seen="${escAttr(s.fingerprint)}" class="ghost">👁 View</button>
         <button data-to-saved="${escAttr(s.fingerprint)}" class="ghost" style="color:#057642;border-color:#057642">↳ To saved</button>
@@ -246,6 +246,14 @@ function escHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function escAttr(s) { return escHtml(s); }
+
+// Compact description indicator: full / short / none.
+function descLabel(text) {
+  const len = (text || "").length;
+  if (!len) return '<span style="color:#999">none</span>';
+  if (len < 200) return '<span style="color:#915907">short</span>';
+  return '<span style="color:#057642">full</span>';
+}
 
 document.getElementById("search-saved").addEventListener("input", renderSaved);
 document.getElementById("search-seen").addEventListener("input", renderSeen);
