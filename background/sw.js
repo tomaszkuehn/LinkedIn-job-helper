@@ -14,7 +14,9 @@ const DEFAULT_SETTINGS = {
   autoBackup: true,
   backupMode: "overwrite",      // "overwrite" | "timestamp"
   seenRetentionDays: 90,         // 0 = wyłącz auto-prune
-  preferredCities: [],            // cities preferred for onsite/hybrid; remote always OK
+  homeCity: "",                   // city name used as the origin for distance checks
+  maxDistanceKm: 30,              // max acceptable haversine distance from homeCity
+  preferredCities: [],            // deprecated — kept for backward compat / migration
   lastBackupAt: null,
   lastBackupFile: null,
   lastBackupCount: 0,

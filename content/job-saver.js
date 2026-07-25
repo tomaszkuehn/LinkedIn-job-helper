@@ -167,61 +167,45 @@
     return CITY_COORDS[k] || null;
   }
 
-  function nearestPreferredName(city, preferredCities) {
+  function distanceFromHome(city, homeCity) {
     const c = cityCoords(city);
-    if (!c) return preferredCities[0] || "";
-    let best = null, bestD = null;
-    for (const p of (preferredCities || [])) {
-      const pc = cityCoords(p);
-      if (!pc) continue;
-      const d = haversineKm(c, pc);
-      if (d !== null && (bestD === null || d < bestD)) { bestD = d; best = p; }
-    }
-    return best || preferredCities[0] || "";
-  }
-
-  function distanceToNearestPreferred(city, preferredCities) {
-    const c = cityCoords(city);
-    if (!c) return null;
-    let min = null;
-    for (const p of (preferredCities || [])) {
-      const pc = cityCoords(p);
-      if (!pc) continue;
-      const d = haversineKm(c, pc);
-      if (d !== null && (min === null || d < min)) min = d;
-    }
-    return min;
+    const h = cityCoords(homeCity);
+    if (!c || !h) return null;
+    return haversineKm(c, h);
   }
 
   // Returns { verdict, reason, distanceKm }
-  function evaluatePreference(workplaceType, city, preferredCities) {
-    const cities = (preferredCities || []).map(c => String(c || "").trim().toLowerCase()).filter(Boolean);
+  function evaluatePreference(workplaceType, city, homeCity, maxDistanceKm) {
     if (workplaceType === "remote") {
       return { verdict: "good", reason: "Remote — always acceptable", distanceKm: null };
     }
     if (!workplaceType) {
       return { verdict: "neutral", reason: "Workplace type unknown", distanceKm: null };
     }
-    if (cities.length === 0) {
-      return { verdict: "neutral", reason: workplaceType + " — no preferred cities set", distanceKm: null };
+    const home = String(homeCity || "").trim();
+    if (!home) {
+      return { verdict: "neutral", reason: workplaceType + " — set your home city in Options to enable distance check", distanceKm: null };
     }
-    if (city && cities.includes(city.toLowerCase())) {
-      return { verdict: "good", reason: workplaceType + " in " + city + " — matches your preferred city", distanceKm: 0 };
-    }
+    const max = Number.isFinite(maxDistanceKm) && maxDistanceKm > 0 ? maxDistanceKm : 30;
     const where = city ? city : "unknown city";
-    const d = distanceToNearestPreferred(city, preferredCities);
-    const distStr = d !== null ? " (~" + d + " km from " + nearestPreferredName(city, preferredCities) + ")" : "";
-    return { verdict: "bad", reason: workplaceType + " in " + where + distStr + " — not in your preferred cities (" + preferredCities.join(", ") + ")", distanceKm: d };
+    const d = distanceFromHome(city, home);
+    if (d === null) {
+      return { verdict: "neutral", reason: workplaceType + " in " + where + " — can't measure distance to " + home + " (city not in database)", distanceKm: null };
+    }
+    if (d <= max) {
+      return { verdict: "good", reason: workplaceType + " in " + where + " — " + d + " km from " + home + " (≤ " + max + " km)", distanceKm: d };
+    }
+    return { verdict: "bad", reason: workplaceType + " in " + where + " — " + d + " km from " + home + " (> " + max + " km)", distanceKm: d };
   }
 
-  async function getPreferredCities() {
+  async function getHomeLocation() {
     return new Promise((resolve) => {
       try {
         chrome.storage.local.get(KEY_SETTINGS, (res) => {
           const s = res[KEY_SETTINGS] || {};
-          resolve(Array.isArray(s.preferredCities) ? s.preferredCities : []);
+          resolve({ homeCity: s.homeCity || "", maxDistanceKm: Number.isFinite(s.maxDistanceKm) ? s.maxDistanceKm : 30 });
         });
-      } catch (e) { resolve([]); }
+      } catch (e) { resolve({ homeCity: "", maxDistanceKm: 30 }); }
     });
   }
 
@@ -761,11 +745,11 @@
         if (injectedForJobId === String(jobId)) refreshPreferenceBanner(root, jobId);
       }, 1500);
     }
-    getPreferredCities().then(preferredCities => {
-      const ev = evaluatePreference(meta.workplaceType, meta.city, preferredCities);
-      console.log("[LJS] preference verdict:", ev, "preferredCities:", preferredCities);
+    getHomeLocation().then(({ homeCity, maxDistanceKm }) => {
+      const ev = evaluatePreference(meta.workplaceType, meta.city, homeCity, maxDistanceKm);
+      console.log("[LJS] preference verdict:", ev, "homeCity:", homeCity, "maxDistanceKm:", maxDistanceKm);
       removePrefBanner();
-      // Show banner for good and bad. For neutral (unknown workplace / no cities),
+      // Show banner for good and bad. For neutral (unknown workplace / no home city),
       // show an informational banner so the user sees the feature is active.
       const banner = document.createElement("div");
       banner.id = PREF_BANNER_ID;

@@ -80,14 +80,14 @@
 
   <h2>Preferences</h2>
   <div class="toolbar">
-    <label for="preferred-city-1">Preferred city 1:</label>
-    <input id="preferred-city-1" type="text" placeholder="e.g. Hamburg" style="max-width:240px" />
-    <label for="preferred-city-2">Preferred city 2:</label>
-    <input id="preferred-city-2" type="text" placeholder="e.g. Berlin" style="max-width:240px" />
-    <button id="save-cities">Save cities</button>
+    <label for="home-city">Home city:</label>
+    <input id="home-city" type="text" placeholder="e.g. Hamburg" style="max-width:240px" />
+    <label for="max-distance">Max distance (km):</label>
+    <input id="max-distance" type="number" min="0" step="5" value="30" style="max-width:100px" />
+    <button id="save-cities">Save</button>
     <span id="cities-saved" style="color:#057642;font-size:13px"></span>
   </div>
-  <p style="font-size:13px;color:#777;margin:4px 0 24px;line-height:1.5">Remote jobs are always acceptable. On-site / hybrid jobs must be in one of these cities to get a green banner in the LinkedIn detail panel; otherwise the banner is red.</p>
+  <p style="font-size:13px;color:#777;margin:4px 0 24px;line-height:1.5">Remote jobs are always acceptable. On-site / hybrid jobs must be in the same agglomeration as your home city, or within the max distance (haversine, straight-line). If a detected city isn't in the built-in database the banner stays neutral (no false red).</p>
 
   <h2>Saved jobs</h2>
   <p class="count" id="saved-count"></p>
