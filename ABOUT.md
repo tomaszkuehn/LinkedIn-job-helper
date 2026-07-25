@@ -18,6 +18,12 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 - **Auto-prune of seen jobs** — seen entries older than the retention window (default 90 days; configurable 30/60/90/180/365/off) are automatically removed from `chrome.storage.local` to stay under the ~10 MB quota. Full data is preserved in backup files. Runs at SW startup and debounced after seen-store changes.
 - **Storage usage indicator** — popup shows bytes used / ~10 MB limit with color-coded bar (green/amber/red).
 - **Import / restore** — load a backup or export file back into the database (replaces current data, with confirmation).
+- **Quick status actions** — mark any job (saved or just seen) as Apply / Consider / German / Ignore:
+  - Four action buttons injected in the LinkedIn detail panel next to "Save to DB"
+  - Status dropdowns in popup rows and options tables
+  - Filtering by status in the options page (All / Apply / Consider / German / Ignored / No status)
+  - "Ignored" status drops the description text from storage to save space (fingerprint + metadata retained for repost detection)
+  - Status is mirrored between the saved job and its seen entry
 - **Popup UI** — three tabs: **Saved**, **Seen**, **Backup**. Search, copy content, delete, export JSON/CSV.
 - **Options page** — full tabular view of saved and seen jobs, import/export, clear-all.
 

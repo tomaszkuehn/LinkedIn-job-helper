@@ -1,6 +1,7 @@
 import {
   getAllJobs, deleteJob, saveJob, clearJobs,
   getAllSeen, deleteSeen, saveSeen, clearSeen,
+  setJobStatus, setSeenStatus,
 } from "../lib/db.js";
 
 let jobs = [];
@@ -19,9 +20,13 @@ async function refresh() {
 
 function renderSaved() {
   const q = (document.getElementById("search-saved").value || "").toLowerCase().trim();
-  const filtered = q
-    ? jobs.filter(j => [j.title, j.company, j.location, j.descriptionText].some(v => (v || "").toLowerCase().includes(q)))
-    : jobs;
+  const sf = document.getElementById("filter-status-saved").value;
+  const filtered = jobs.filter(j => {
+    if (q && ![j.title, j.company, j.location, j.descriptionText].some(v => (v || "").toLowerCase().includes(q))) return false;
+    if (sf === "__none__") return !j.status;
+    if (sf) return j.status === sf;
+    return true;
+  });
   const tbody = document.getElementById("rows-saved");
   tbody.innerHTML = "";
   for (const job of filtered) {
@@ -30,9 +35,18 @@ function renderSaved() {
       <td><a href="${escAttr(job.url || "")}" target="_blank" rel="noopener">${escHtml(job.title || job.jobId)}</a></td>
       <td>${escHtml(job.company || "")}</td>
       <td>${escHtml(job.location || "")}</td>
+      <td>
+        <select data-job-status="${escAttr(job.jobId)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+          <option value=""${!job.status ? " selected" : ""}>—</option>
+          <option value="apply"${job.status === "apply" ? " selected" : ""}>Apply</option>
+          <option value="to-consider"${job.status === "to-consider" ? " selected" : ""}>Consider</option>
+          <option value="german"${job.status === "german" ? " selected" : ""}>German</option>
+          <option value="ignored"${job.status === "ignored" ? " selected" : ""}>Ignore</option>
+        </select>
+      </td>
       <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
       <td><div class="desc">${escHtml((job.descriptionText || "").slice(0, 400))}${(job.descriptionText || "").length > 400 ? "…" : ""}</div></td>
-      <td><button data-del-saved="${escAttr(job.jobId)}" class="danger">Usuń</button></td>
+      <td><button data-del-saved="${escAttr(job.jobId)}" class="danger">Delete</button></td>
     `;
     tbody.appendChild(tr);
   }
@@ -44,22 +58,44 @@ function renderSaved() {
       await refresh();
     });
   });
+  tbody.querySelectorAll("[data-job-status]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      const id = sel.getAttribute("data-job-status");
+      try { await setJobStatus(id, sel.value); await refresh(); }
+      catch (e) { alert("Status error: " + e.message); }
+    });
+  });
 }
 
 function renderSeen() {
   const q = (document.getElementById("search-seen").value || "").toLowerCase().trim();
-  const filtered = q
-    ? seen.filter(s => [s.title, s.company, s.descriptionText].some(v => (v || "").toLowerCase().includes(q)))
-    : seen;
+  const sf = document.getElementById("filter-status-seen").value;
+  const filtered = seen.filter(s => {
+    if (q && ![s.title, s.company, s.descriptionText].some(v => (v || "").toLowerCase().includes(q))) return false;
+    if (sf === "__none__") return !s.status;
+    if (sf) return s.status === sf;
+    return true;
+  });
   const tbody = document.getElementById("rows-seen");
   tbody.innerHTML = "";
   for (const s of filtered) {
     const repost = (s.jobIds || []).length > 1;
+    const ignored = s.status === "ignored";
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${escHtml(s.title || "(brak)")}</td>
+      <td>${escHtml(s.title || "(untitled)")}</td>
       <td>${escHtml(s.company || "")}</td>
       <td class="${repost ? "repost" : ""}">${repost ? "🔁 repost" : "1×"} (seenCount: ${s.seenCount || 1})</td>
+      <td>
+        <select data-seen-status="${escAttr(s.fingerprint)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+          <option value=""${!s.status ? " selected" : ""}>—</option>
+          <option value="apply"${s.status === "apply" ? " selected" : ""}>Apply</option>
+          <option value="to-consider"${s.status === "to-consider" ? " selected" : ""}>Consider</option>
+          <option value="german"${s.status === "german" ? " selected" : ""}>German</option>
+          <option value="ignored"${s.status === "ignored" ? " selected" : ""}>Ignore</option>
+        </select>
+        ${ignored ? "<span style='color:#999;font-size:11px'> (desc dropped)</span>" : ""}
+      </td>
       <td>${s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("en-US") : "?"}</td>
       <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?"}</td>
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
@@ -76,6 +112,13 @@ function renderSeen() {
       await refresh();
     });
   });
+  tbody.querySelectorAll("[data-seen-status]").forEach(sel => {
+    sel.addEventListener("change", async () => {
+      const fp = sel.getAttribute("data-seen-status");
+      try { await setSeenStatus(fp, sel.value); await refresh(); }
+      catch (e) { alert("Status error: " + e.message); }
+    });
+  });
 }
 
 function escHtml(s) {
@@ -85,6 +128,8 @@ function escAttr(s) { return escHtml(s); }
 
 document.getElementById("search-saved").addEventListener("input", renderSaved);
 document.getElementById("search-seen").addEventListener("input", renderSeen);
+document.getElementById("filter-status-saved").addEventListener("change", renderSaved);
+document.getElementById("filter-status-seen").addEventListener("change", renderSeen);
 
 // Export JSON (saved + seen combined)
 document.getElementById("export-json").addEventListener("click", () => {
@@ -93,7 +138,7 @@ document.getElementById("export-json").addEventListener("click", () => {
 });
 
 document.getElementById("export-csv").addEventListener("click", () => {
-  const headers = ["jobId", "title", "company", "location", "url", "savedAt", "descriptionText"];
+  const headers = ["jobId", "title", "company", "location", "url", "status", "savedAt", "descriptionText"];
   const esc = v => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
   const rows = [headers.join(",")];
   for (const j of jobs) rows.push(headers.map(h => esc(j[h])).join(","));
@@ -101,7 +146,7 @@ document.getElementById("export-csv").addEventListener("click", () => {
 });
 
 document.getElementById("export-seen").addEventListener("click", () => {
-  const headers = ["fingerprint", "title", "company", "seenCount", "firstSeenAt", "lastSeenAt", "jobIds", "descriptionText"];
+  const headers = ["fingerprint", "title", "company", "seenCount", "status", "firstSeenAt", "lastSeenAt", "jobIds", "descriptionText"];
   const esc = v => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
   const rows = [headers.join(",")];
   for (const s of seen) {

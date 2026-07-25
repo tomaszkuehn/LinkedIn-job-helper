@@ -1,4 +1,4 @@
-import { getAllJobs, deleteJob, getAllSeen, deleteSeen, saveJob, saveSeen } from "../lib/db.js";
+import { getAllJobs, deleteJob, getAllSeen, deleteSeen, saveJob, saveSeen, setJobStatus, setSeenStatus } from "../lib/db.js";
 
 const listEl = document.getElementById("list");
 const countEl = document.getElementById("count");
@@ -72,6 +72,12 @@ function renderSaved(list) {
     node.querySelector(".row__loc").textContent = job.location || "";
     node.querySelector(".row__date").textContent = job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : "";
     node.querySelector(".row__desc").textContent = (job.descriptionText || "").slice(0, 300) + ((job.descriptionText || "").length > 300 ? "…" : "");
+    const statusSel = node.querySelector(".row__status");
+    statusSel.value = job.status || "";
+    statusSel.addEventListener("change", async () => {
+      try { await setJobStatus(job.jobId, statusSel.value); toast("Status updated"); }
+      catch (e) { alert("Status error: " + e.message); }
+    });
     node.querySelector(".row__copy").addEventListener("click", () => {
       const txt = [job.title, job.company, job.location, job.url, "---", job.descriptionText].filter(Boolean).join("\n");
       navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
@@ -96,6 +102,12 @@ function renderSeen(list) {
     node.querySelector(".row__last").textContent = "last: " + (s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__ids").textContent = "jobIds: " + (s.jobIds || []).join(", ");
     node.querySelector(".row__desc").textContent = (s.descriptionText || "").slice(0, 200) + ((s.descriptionText || "").length > 200 ? "…" : "");
+    const statusSel = node.querySelector(".row__status");
+    statusSel.value = s.status || "";
+    statusSel.addEventListener("change", async () => {
+      try { await setSeenStatus(s.fingerprint, statusSel.value); await refresh(); }
+      catch (e) { alert("Status error: " + e.message); }
+    });
     node.querySelector(".row__copy-seen").addEventListener("click", () => {
       const txt = [s.title, s.company, s.descriptionText].filter(Boolean).join("\n");
       navigator.clipboard.writeText(txt).then(() => flash(node, "Copied"), () => flash(node, "Error"));
@@ -115,6 +127,20 @@ function flash(node, msg) {
   const orig = btn.textContent;
   btn.textContent = msg;
   setTimeout(() => (btn.textContent = orig), 1500);
+}
+
+function toast(msg) {
+  let el = document.getElementById("ljs-popup-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "ljs-popup-toast";
+    el.style.cssText = "position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:#057642;color:#fff;padding:6px 12px;border-radius:4px;font-size:12px;z-index:9999;opacity:0;transition:opacity .2s;";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = "1";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (el.style.opacity = "0"), 1500);
 }
 
 searchEl.addEventListener("input", render);

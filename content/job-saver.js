@@ -58,6 +58,79 @@
     return Object.values(seen).filter(s => s.cardFingerprint === cardFingerprint);
   }
 
+  // ---------- Status (apply / to-consider / german / ignored) ----------
+  const VALID_STATUSES = new Set(["apply", "to-consider", "german", "ignored"]);
+  const STATUS_LABELS = {
+    "apply": "Apply",
+    "to-consider": "Consider",
+    "german": "German",
+    "ignored": "Ignore",
+  };
+
+  // Compute detailFingerprint for current detail, get/create seen entry, set status.
+  async function setCurrentJobStatus(meta, status) {
+    if (status && !VALID_STATUSES.has(status)) throw new Error("Invalid status: " + status);
+    const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText || "");
+    const cfp = await cardFingerprint(meta.title, meta.company);
+    const seen = await storageGet(KEY_SEEN);
+    let entry = seen[fp];
+    if (!entry) {
+      const now = new Date().toISOString();
+      entry = {
+        fingerprint: fp,
+        cardFingerprint: cfp,
+        title: meta.title || "",
+        company: meta.company || "",
+        descriptionText: meta.descriptionText || "",
+        descriptionHtml: meta.descriptionHtml || "",
+        jobIds: [String(meta.jobId)],
+        firstSeenAt: now,
+        lastSeenAt: now,
+        seenCount: 1,
+        status: "",
+        statusSetAt: null,
+      };
+    }
+    entry.status = status || "";
+    entry.statusSetAt = status ? new Date().toISOString() : null;
+    // "ignored" strips description to save space; fingerprint + metadata kept for repost detection.
+    if (status === "ignored") {
+      entry.descriptionText = "";
+      entry.descriptionHtml = "";
+    }
+    seen[fp] = entry;
+    await storageSet(KEY_SEEN, seen);
+    // Mirror to saved job if present.
+    const jobs = await storageGet(KEY_JOBS);
+    let jobsChanged = false;
+    for (const jid of entry.jobIds || []) {
+      if (jobs[jid]) {
+        jobs[jid].status = entry.status;
+        jobs[jid].statusSetAt = entry.statusSetAt;
+        if (status === "ignored") {
+          jobs[jid].descriptionText = "";
+          jobs[jid].descriptionHtml = "";
+        }
+        jobsChanged = true;
+      }
+    }
+    if (jobsChanged) await storageSet(KEY_JOBS, jobs);
+    return entry;
+  }
+
+  async function getCurrentJobStatus(meta) {
+    if (!meta.descriptionText) {
+      // Fall back to cardFingerprint-only lookup (status set before description loaded).
+      const cfp = await cardFingerprint(meta.title, meta.company);
+      const matches = await getAllSeenByCardFp(cfp);
+      if (matches.length) return matches[0].status || "";
+      return "";
+    }
+    const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
+    const entry = await getSeenByFp(fp);
+    return (entry && entry.status) || "";
+  }
+
   // ---------- Fingerprinty ----------
   function normalizeText(s) {
     return String(s || "")
@@ -237,11 +310,13 @@
   }
 
   const BTN_ID = "ljs-save-btn";
+  const TOOLBAR_ID = "ljs-toolbar";
+  const ACTION_BTN_CLASS = "ljs-action-btn";
   let injectedForJobId = null;
 
   function removeButton() {
-    const b = document.getElementById(BTN_ID);
-    if (b) b.remove();
+    const t = document.getElementById(TOOLBAR_ID);
+    if (t) t.remove();
     injectedForJobId = null;
   }
 
@@ -250,7 +325,7 @@
     if (!root) { removeButton(); return; }
     const jobId = currentJobId(root);
     if (!jobId) return;
-    if (injectedForJobId === String(jobId) && document.getElementById(BTN_ID)) return;
+    if (injectedForJobId === String(jobId) && document.getElementById(TOOLBAR_ID)) return;
     removeButton();
     injectedForJobId = String(jobId);
 
@@ -261,6 +336,11 @@
       root.querySelector(".mt4 .display-flex") ||
       root.querySelector(".job-details-jobs-unified-top-card__container") ||
       root;
+
+    // Toolbar container: Save button + 4 quick-action buttons.
+    const toolbar = document.createElement("div");
+    toolbar.id = TOOLBAR_ID;
+    toolbar.className = "ljs-toolbar";
 
     const btn = document.createElement("button");
     btn.id = BTN_ID;
@@ -291,7 +371,58 @@
       await handleSave(btn, meta);
     });
 
-    host.appendChild(btn);
+    toolbar.appendChild(btn);
+
+    // Quick-action buttons.
+    const ACTIONS = ["apply", "to-consider", "german", "ignored"];
+    const actionBtns = {};
+    for (const key of ACTIONS) {
+      const ab = document.createElement("button");
+      ab.type = "button";
+      ab.className = ACTION_BTN_CLASS + " ljs-action-" + key;
+      ab.textContent = STATUS_LABELS[key];
+      ab.title = "Mark as: " + STATUS_LABELS[key];
+      ab.dataset.action = key;
+      ab.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const meta = scrapeFromDetail(root, jobId);
+        if (!meta.title && !meta.company) {
+          toast("Job details still loading — try in a second", "err");
+          return;
+        }
+        const isAlready = ab.classList.contains(ACTION_BTN_CLASS + "--active");
+        const nextStatus = isAlready ? "" : key;
+        try {
+          ab.disabled = true;
+          await setCurrentJobStatus(meta, nextStatus);
+          // Update visual state of all action buttons.
+          for (const k of ACTIONS) {
+            actionBtns[k].classList.toggle(ACTION_BTN_CLASS + "--active", k === key && !isAlready);
+          }
+          toast(isAlready ? ("Cleared: " + STATUS_LABELS[key]) : ("Marked: " + STATUS_LABELS[key]), "ok");
+        } catch (err) {
+          console.error("[LJS] status error", err);
+          toast("Status error: " + (err.message || err), "err");
+        } finally {
+          ab.disabled = false;
+        }
+      });
+      actionBtns[key] = ab;
+      toolbar.appendChild(ab);
+    }
+
+    // Reflect existing status (async, may resolve after append).
+    const meta0 = scrapeFromDetail(root, jobId);
+    if (meta0.title || meta0.company) {
+      getCurrentJobStatus(meta0).then(status => {
+        if (status && actionBtns[status]) {
+          actionBtns[status].classList.add(ACTION_BTN_CLASS + "--active");
+        }
+      }).catch(() => {});
+    }
+
+    host.appendChild(toolbar);
   }
 
   // ---------- Auto-registering seen jobs (detail) ----------

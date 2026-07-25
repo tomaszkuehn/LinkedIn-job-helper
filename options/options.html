@@ -30,6 +30,14 @@
   <p class="count" id="saved-count"></p>
   <div class="toolbar">
     <input id="search-saved" type="search" placeholder="Search saved…" />
+    <select id="filter-status-saved" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+      <option value="">All statuses</option>
+      <option value="apply">Apply</option>
+      <option value="to-consider">Consider</option>
+      <option value="german">German</option>
+      <option value="ignored">Ignored</option>
+      <option value="__none__">No status</option>
+    </select>
     <button id="export-json">Export JSON (saved + seen)</button>
     <button id="export-csv">Export CSV (saved)</button>
     <button id="import-json" class="ghost">Import JSON</button>
@@ -38,7 +46,7 @@
   </div>
   <table id="table-saved">
     <thead>
-      <tr><th>Title</th><th>Company</th><th>Location</th><th>Saved</th><th>Description (excerpt)</th><th></th></tr>
+      <tr><th>Title</th><th>Company</th><th>Location</th><th>Status</th><th>Saved</th><th>Description (excerpt)</th><th></th></tr>
     </thead>
     <tbody id="rows-saved"></tbody>
   </table>
@@ -47,12 +55,20 @@
   <p class="count" id="seen-count"></p>
   <div class="toolbar">
     <input id="search-seen" type="search" placeholder="Search seen…" />
+    <select id="filter-status-seen" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+      <option value="">All statuses</option>
+      <option value="apply">Apply</option>
+      <option value="to-consider">Consider</option>
+      <option value="german">German</option>
+      <option value="ignored">Ignored</option>
+      <option value="__none__">No status</option>
+    </select>
     <button id="export-seen" class="ghost">Export seen (CSV)</button>
     <button id="clear-seen" class="danger">Clear seen</button>
   </div>
   <table id="table-seen">
     <thead>
-      <tr><th>Title</th><th>Company</th><th>Seen</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Description (excerpt)</th><th></th></tr>
+      <tr><th>Title</th><th>Company</th><th>Seen</th><th>Status</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Description (excerpt)</th><th></th></tr>
     </thead>
     <tbody id="rows-seen"></tbody>
   </table>
