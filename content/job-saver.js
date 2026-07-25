@@ -119,22 +119,99 @@
     return { workplaceType, city };
   }
 
+  // ----- approximate distance between detected city and preferred city -----
+  const CITY_COORDS = {
+    // Germany
+    "berlin": [52.52, 13.405], "hamburg": [53.55, 9.99], "munich": [48.14, 11.58], "muenchen": [48.14, 11.58],
+    "frankfurt": [50.11, 8.68], "frankfurt am main": [50.11, 8.68], "cologne": [50.94, 6.96], "koeln": [50.94, 6.96],
+    "stuttgart": [48.78, 9.18], "duesseldorf": [51.23, 6.79], "dortmund": [51.51, 7.46], "essen": [51.46, 7.01],
+    "leipzig": [51.34, 12.37], "dresden": [51.05, 13.74], "hanover": [52.37, 9.73], "hannover": [52.37, 9.73],
+    "nuremberg": [49.45, 11.08], "nuernberg": [49.45, 11.08], "bremen": [53.08, 8.80], "karlsruhe": [49.01, 8.40],
+    "mannheim": [49.49, 8.46], "bonn": [50.73, 7.10], "wiesbaden": [50.08, 8.24], "augsburg": [48.37, 10.90],
+    "freiburg": [47.99, 7.85], "mainz": [49.99, 8.27], "kassel": [51.31, 9.50], "saarbruecken": [49.24, 6.99],
+    "magdeburg": [52.12, 11.63], "freiburg im breisgau": [47.99, 7.85], "heidelberg": [49.41, 8.69],
+    "erlangen": [49.59, 11.01], "regensburg": [49.02, 12.10], "wolfsburg": [52.42, 10.78],
+    // Poland
+    "warsaw": [52.23, 21.01], "warszawa": [52.23, 21.01], "krakow": [50.06, 19.94], "krakau": [50.06, 19.94],
+    "wroclaw": [51.11, 17.04], "breslau": [51.11, 17.04], "gdansk": [54.35, 18.65], "danzig": [54.35, 18.65],
+    "poznan": [52.41, 16.93], "posen": [52.41, 16.93], "lodz": [51.76, 19.46], "katowice": [50.26, 19.02],
+    "lublin": [51.25, 22.57], "bydgoszcz": [53.12, 18.01], "szczecin": [53.43, 14.55], "stettin": [53.43, 14.55],
+    "bialystok": [53.13, 23.16], "torun": [53.01, 18.60], "rzeszow": [50.04, 22.00], "opole": [50.67, 17.92],
+    "gdynia": [54.52, 18.53], "sopot": [54.44, 18.56], "kielce": [50.87, 20.63], "olsztyn": [53.77, 20.48],
+    // Other EU
+    "amsterdam": [52.37, 4.90], "rotterdam": [51.92, 4.48], "the hague": [52.08, 4.30], "den haag": [52.08, 4.30],
+    "paris": [48.85, 2.35], "london": [51.51, -0.13], "vienna": [48.21, 16.37], "wien": [48.21, 16.37],
+    "zurich": [47.38, 8.54], "zuerich": [47.38, 8.54], "geneva": [46.20, 6.14], "genf": [46.20, 6.14],
+    "prague": [50.08, 14.44], "prag": [50.08, 14.44], "bratislava": [48.15, 17.11], "brussels": [50.85, 4.35],
+    "bruessel": [50.85, 4.35], "copenhagen": [55.68, 12.57], "koebenhavn": [55.68, 12.57],
+    "stockholm": [59.33, 18.07], "oslo": [59.91, 10.75], "helsinki": [60.17, 24.94],
+    "dublin": [53.35, -6.26], "lisbon": [38.72, -9.14], "lissabon": [38.72, -9.14], "madrid": [40.42, -3.70],
+    "barcelona": [41.39, 2.16], "rome": [41.90, 12.50], "roma": [41.90, 12.50], "milan": [45.46, 9.19],
+    "mailand": [45.46, 9.19], "lyon": [45.76, 4.84], "toulouse": [43.60, 1.44], "nice": [43.70, 7.26],
+  };
+
+  function haversineKm(a, b) {
+    if (!a || !b) return null;
+    const R = 6371;
+    const dLat = (b[0] - a[0]) * Math.PI / 180;
+    const dLon = (b[1] - a[1]) * Math.PI / 180;
+    const la1 = a[0] * Math.PI / 180;
+    const la2 = b[0] * Math.PI / 180;
+    const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+    return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+  }
+
+  function cityCoords(name) {
+    if (!name) return null;
+    const k = String(name).trim().toLowerCase();
+    return CITY_COORDS[k] || null;
+  }
+
+  function nearestPreferredName(city, preferredCities) {
+    const c = cityCoords(city);
+    if (!c) return preferredCities[0] || "";
+    let best = null, bestD = null;
+    for (const p of (preferredCities || [])) {
+      const pc = cityCoords(p);
+      if (!pc) continue;
+      const d = haversineKm(c, pc);
+      if (d !== null && (bestD === null || d < bestD)) { bestD = d; best = p; }
+    }
+    return best || preferredCities[0] || "";
+  }
+
+  function distanceToNearestPreferred(city, preferredCities) {
+    const c = cityCoords(city);
+    if (!c) return null;
+    let min = null;
+    for (const p of (preferredCities || [])) {
+      const pc = cityCoords(p);
+      if (!pc) continue;
+      const d = haversineKm(c, pc);
+      if (d !== null && (min === null || d < min)) min = d;
+    }
+    return min;
+  }
+
+  // Returns { verdict, reason, distanceKm }
   function evaluatePreference(workplaceType, city, preferredCities) {
     const cities = (preferredCities || []).map(c => String(c || "").trim().toLowerCase()).filter(Boolean);
     if (workplaceType === "remote") {
-      return { verdict: "good", reason: "Remote — always acceptable" };
+      return { verdict: "good", reason: "Remote — always acceptable", distanceKm: null };
     }
     if (!workplaceType) {
-      return { verdict: "neutral", reason: "Workplace type unknown" };
+      return { verdict: "neutral", reason: "Workplace type unknown", distanceKm: null };
     }
     if (cities.length === 0) {
-      return { verdict: "neutral", reason: workplaceType + " — no preferred cities set" };
+      return { verdict: "neutral", reason: workplaceType + " — no preferred cities set", distanceKm: null };
     }
     if (city && cities.includes(city.toLowerCase())) {
-      return { verdict: "good", reason: workplaceType + " in " + city + " — matches your preferred city" };
+      return { verdict: "good", reason: workplaceType + " in " + city + " — matches your preferred city", distanceKm: 0 };
     }
     const where = city ? city : "unknown city";
-    return { verdict: "bad", reason: workplaceType + " in " + where + " — not in your preferred cities (" + preferredCities.join(", ") + ")" };
+    const d = distanceToNearestPreferred(city, preferredCities);
+    const distStr = d !== null ? " (~" + d + " km from " + nearestPreferredName(city, preferredCities) + ")" : "";
+    return { verdict: "bad", reason: workplaceType + " in " + where + distStr + " — not in your preferred cities (" + preferredCities.join(", ") + ")", distanceKm: d };
   }
 
   async function getPreferredCities() {
