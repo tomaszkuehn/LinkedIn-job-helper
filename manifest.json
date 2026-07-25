@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Job Saver",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Save LinkedIn job listings to a local database with auto-backup to file and repost detection.",
   "permissions": ["storage", "activeTab", "scripting", "downloads"],
   "host_permissions": ["https://www.linkedin.com/*"],

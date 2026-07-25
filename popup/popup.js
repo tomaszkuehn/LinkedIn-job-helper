@@ -136,10 +136,16 @@ document.querySelectorAll(".tab").forEach(t => {
 // ----- Backup panel -----
 const autoChk = document.getElementById("auto-backup");
 const modeSel = document.getElementById("backup-mode");
+const retentionSel = document.getElementById("seen-retention");
+const pruneNowBtn = document.getElementById("prune-now");
 const statusEl = document.getElementById("backup-status");
 const backupNowBtn = document.getElementById("backup-now");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
+const storageBar = document.getElementById("storage-bar");
+const storageLabel = document.getElementById("storage-label");
+const storageFill = document.getElementById("storage-fill");
+const storageHint = document.getElementById("storage-hint");
 
 function sendMsg(msg) {
   return new Promise((resolve) => chrome.runtime.sendMessage(msg, resolve));
@@ -150,8 +156,15 @@ async function refreshBackupPanel() {
   const s = (res && res.settings) || {};
   autoChk.checked = !!s.autoBackup;
   modeSel.value = s.backupMode || "overwrite";
+  retentionSel.value = String(s.seenRetentionDays ?? 90);
   let txt = "Auto-backup: <b>" + (s.autoBackup ? "ENABLED" : "disabled") + "</b><br>";
   txt += "Mode: " + (s.backupMode === "timestamp" ? "sequential timestamped files" : "overwrite \"latest.json\"") + "<br>";
+  const rd = Number(s.seenRetentionDays) || 0;
+  txt += "Seen retention: " + (rd > 0 ? rd + " days" : "off (manual only)");
+  if (s.lastPruneAt && (Number(s.lastPruneCount) || 0) > 0) {
+    txt += " <span style='color:#777'>— last prune: " + new Date(s.lastPruneAt).toLocaleString("en-US") + " (" + s.lastPruneCount + " removed)</span>";
+  }
+  txt += "<br>";
   if (s.lastBackupAt) {
     txt += "Last backup: <b>" + new Date(s.lastBackupAt).toLocaleString("en-US") + "</b><br>";
     txt += "File: <code>" + (s.lastBackupFile || "?") + "</code><br>";
@@ -160,6 +173,33 @@ async function refreshBackupPanel() {
     txt += "No backup yet.";
   }
   statusEl.innerHTML = txt;
+
+  // Storage usage
+  const usageRes = await sendMsg({ type: "get-usage" });
+  if (usageRes && usageRes.ok && usageRes.bytes != null) {
+    const bytes = usageRes.bytes;
+    const limit = 10 * 1024 * 1024;  // ~10 MB chrome.storage.local
+    const pct = Math.min(100, (bytes / limit) * 100);
+    storageLabel.textContent = "Storage: " + formatBytes(bytes) + " / ~10 MB (" + pct.toFixed(1) + "%)";
+    storageFill.style.width = pct + "%";
+    storageFill.className = "storage-bar__fill";
+    if (pct > 85) storageFill.classList.add("storage-bar__fill--crit");
+    else if (pct > 60) storageFill.classList.add("storage-bar__fill--warn");
+    storageHint.textContent = pct > 85
+      ? "Near quota — reduce retention window or clear old data."
+      : pct > 60
+        ? "Getting full — consider lowering retention."
+        : "Plenty of headroom.";
+    storageBar.hidden = false;
+  } else {
+    storageBar.hidden = true;
+  }
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + " B";
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB";
+  return (b / (1024 * 1024)).toFixed(2) + " MB";
 }
 
 autoChk.addEventListener("change", async () => {
@@ -169,6 +209,23 @@ autoChk.addEventListener("change", async () => {
 modeSel.addEventListener("change", async () => {
   await sendMsg({ type: "set-settings", patch: { backupMode: modeSel.value } });
   refreshBackupPanel();
+});
+retentionSel.addEventListener("change", async () => {
+  await sendMsg({ type: "set-settings", patch: { seenRetentionDays: Number(retentionSel.value) } });
+  refreshBackupPanel();
+});
+pruneNowBtn.addEventListener("click", async () => {
+  pruneNowBtn.disabled = true;
+  pruneNowBtn.textContent = "Pruning…";
+  const res = await sendMsg({ type: "prune-now" });
+  pruneNowBtn.disabled = false;
+  pruneNowBtn.textContent = "Prune now";
+  if (res && res.ok) {
+    await refresh();
+    refreshBackupPanel();
+  } else {
+    alert("Prune failed: " + (res && res.error ? res.error : "?"));
+  }
 });
 
 backupNowBtn.addEventListener("click", async () => {

@@ -146,6 +146,16 @@ h1 { font-size: 15px; margin: 0; }
   font: inherit;
   flex: 1;
 }
+.backup-row button.ghost {
+  padding: 6px 10px;
+  border: 1px solid #0a66c2;
+  background: #fff;
+  color: #0a66c2;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.backup-row button.ghost:hover { background: #eef2f5; }
 .switch {
   display: flex;
   align-items: center;
@@ -189,4 +199,36 @@ h1 { font-size: 15px; margin: 0; }
   background: #f0f0f0;
   padding: 1px 4px;
   border-radius: 2px;
+}
+
+/* Storage usage bar */
+.storage-bar {
+  margin: 10px 0;
+  padding: 8px 10px;
+  background: #f7f9fa;
+  border: 1px solid #e6e6e6;
+  border-radius: 4px;
+}
+.storage-bar__label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.storage-bar__track {
+  height: 8px;
+  background: #e6e6e6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.storage-bar__fill {
+  height: 100%;
+  background: #057642;
+  transition: width .3s, background .3s;
+}
+.storage-bar__fill--warn { background: #915907; }
+.storage-bar__fill--crit { background: #b00020; }
+.storage-bar__hint {
+  font-size: 11px;
+  color: #777;
+  margin-top: 4px;
 }

@@ -15,6 +15,8 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 - **Auto-backup to file** — after every database change (debounced 2s), the service worker writes a JSON snapshot to `Downloads/linkedin-jobs-backup/`:
   - `overwrite` mode → single `linkedin-jobs-latest.json`
   - `timestamp` mode → sequential `linkedin-jobs-2026-07-25T13-45-12.json` files
+- **Auto-prune of seen jobs** — seen entries older than the retention window (default 90 days; configurable 30/60/90/180/365/off) are automatically removed from `chrome.storage.local` to stay under the ~10 MB quota. Full data is preserved in backup files. Runs at SW startup and debounced after seen-store changes.
+- **Storage usage indicator** — popup shows bytes used / ~10 MB limit with color-coded bar (green/amber/red).
 - **Import / restore** — load a backup or export file back into the database (replaces current data, with confirmation).
 - **Popup UI** — three tabs: **Saved**, **Seen**, **Backup**. Search, copy content, delete, export JSON/CSV.
 - **Options page** — full tabular view of saved and seen jobs, import/export, clear-all.
@@ -64,8 +66,7 @@ No remote permissions. No data leaves the browser.
 
 ## Limitations
 
-- `chrome.storage.local` has a ~10 MB quota — enough for tens of thousands of jobs with full description text.
-- Backup files accumulate in `Downloads/linkedin-jobs-backup/`; in `timestamp` mode, prune manually.
+- `chrome.storage.local` has a ~10 MB quota — enough for tens of thousands of jobs with full description text. Auto-prune of seen entries (default 90 days) keeps growth bounded; backup files are the durable source of truth.
 - Fingerprint matching is heuristic: minor edits to the job description by the poster produce a different `detailFingerprint` and won't be flagged as a repost. `cardFingerprint` (title + company only) catches re-posts under a new jobId even with edited descriptions, at the cost of occasional false positives for genuinely different jobs with the same title and company.
 
 ## License
