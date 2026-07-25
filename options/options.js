@@ -46,7 +46,10 @@ function renderSaved() {
       </td>
       <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
       <td><div class="desc">${escHtml((job.descriptionText || "").slice(0, 400))}${(job.descriptionText || "").length > 400 ? "…" : ""}</div></td>
-      <td><button data-del-saved="${escAttr(job.jobId)}" class="danger">Delete</button></td>
+      <td>
+        <button data-view-saved="${escAttr(job.jobId)}" class="ghost">View</button>
+        <button data-del-saved="${escAttr(job.jobId)}" class="danger">Delete</button>
+      </td>
     `;
     tbody.appendChild(tr);
   }
@@ -58,9 +61,21 @@ function renderSaved() {
       await refresh();
     });
   });
+  tbody.querySelectorAll("[data-view-saved]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-view-saved");
+      const job = jobs.find(j => String(j.jobId) === String(id));
+      if (job) showPreview(job, "saved");
+    });
+  });
   tbody.querySelectorAll("[data-job-status]").forEach(sel => {
     sel.addEventListener("change", async () => {
       const id = sel.getAttribute("data-job-status");
+      const job = jobs.find(j => String(j.jobId) === String(id));
+      if (sel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+        sel.value = (job && job.status) || "";
+        return;
+      }
       try { await setJobStatus(id, sel.value); await refresh(); }
       catch (e) { alert("Status error: " + e.message); }
     });
@@ -100,7 +115,10 @@ function renderSeen() {
       <td>${s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?"}</td>
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
       <td><div class="desc">${escHtml((s.descriptionText || "").slice(0, 400))}${(s.descriptionText || "").length > 400 ? "…" : ""}</div></td>
-      <td><button data-del-seen="${escAttr(s.fingerprint)}" class="danger">Forget</button></td>
+      <td>
+        <button data-view-seen="${escAttr(s.fingerprint)}" class="ghost">View</button>
+        <button data-del-seen="${escAttr(s.fingerprint)}" class="danger">Forget</button>
+      </td>
     `;
     tbody.appendChild(tr);
   }
@@ -112,9 +130,21 @@ function renderSeen() {
       await refresh();
     });
   });
+  tbody.querySelectorAll("[data-view-seen]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const fp = btn.getAttribute("data-view-seen");
+      const s = seen.find(x => x.fingerprint === fp);
+      if (s) showPreview(s, "seen");
+    });
+  });
   tbody.querySelectorAll("[data-seen-status]").forEach(sel => {
     sel.addEventListener("change", async () => {
       const fp = sel.getAttribute("data-seen-status");
+      const s = seen.find(x => x.fingerprint === fp);
+      if (sel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+        sel.value = (s && s.status) || "";
+        return;
+      }
       try { await setSeenStatus(fp, sel.value); await refresh(); }
       catch (e) { alert("Status error: " + e.message); }
     });
@@ -209,5 +239,64 @@ function download(filename, content, mime) {
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ---------- Job preview modal ----------
+const STATUS_LABELS_FULL = {
+  "apply": "Apply",
+  "to-consider": "Consider",
+  "german": "German",
+  "ignored": "Ignored",
+};
+
+const previewModal = document.getElementById("preview-modal");
+const previewContent = document.getElementById("preview-content");
+const previewClose = document.getElementById("preview-close");
+
+function showPreview(job, kind) {
+  const status = job.status || "";
+  const statusLabel = status ? STATUS_LABELS_FULL[status] || status : "—";
+  const dateLabel = kind === "saved"
+    ? (job.savedAt ? "Saved: " + new Date(job.savedAt).toLocaleString("en-US") : "")
+    : (job.firstSeenAt ? "First seen: " + new Date(job.firstSeenAt).toLocaleDateString("en-US") : "")
+      + (job.lastSeenAt ? " · Last seen: " + new Date(job.lastSeenAt).toLocaleDateString("en-US") : "");
+  const url = job.url || (job.jobIds && job.jobIds.length ? "https://www.linkedin.com/jobs/view/" + job.jobIds[0] + "/" : "");
+  const desc = job.descriptionHtml || "";
+  const descText = job.descriptionText || "";
+
+  previewContent.innerHTML = `
+    <h2 class="pv-title">${escHtml(job.title || (kind === "seen" ? "(untitled)" : job.jobId))}</h2>
+    <div class="pv-company">${escHtml(job.company || "")}</div>
+    <div class="pv-meta">
+      ${job.location ? "<span>📍 " + escHtml(job.location) + "</span>" : ""}
+      <span class="pv-status pv-status--${escAttr(status || "none")}">Status: ${escHtml(statusLabel)}</span>
+      ${dateLabel ? "<span>" + escHtml(dateLabel) + "</span>" : ""}
+      ${kind === "seen" && job.seenCount ? "<span>Seen " + job.seenCount + "×</span>" : ""}
+      ${kind === "seen" && (job.jobIds || []).length > 1 ? "<span class='repost'>🔁 repost</span>" : ""}
+    </div>
+    ${url ? "<div class='pv-url'><a href='" + escAttr(url) + "' target='_blank' rel='noopener'>Open on LinkedIn ↗</a></div>" : ""}
+    <div class="pv-toolbar">
+      <button id="pv-copy">Copy content</button>
+      <button id="pv-copy-text" class="ghost">Copy as plain text</button>
+    </div>
+    <div class="pv-desc">${desc ? desc : (descText ? "<pre style='white-space:pre-wrap;font:inherit;margin:0'>" + escHtml(descText) + "</pre>" : "<p class='pv-empty'>No description stored for this job.</p>")}</div>
+  `;
+
+  const copyBtn = document.getElementById("pv-copy");
+  const copyTextBtn = document.getElementById("pv-copy-text");
+  if (copyBtn) copyBtn.addEventListener("click", () => {
+    const txt = [job.title, job.company, job.location, url, "---", descText].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(txt).then(() => { copyBtn.textContent = "Copied"; setTimeout(() => (copyBtn.textContent = "Copy content"), 1500); });
+  });
+  if (copyTextBtn) copyTextBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(descText || "").then(() => { copyTextBtn.textContent = "Copied"; setTimeout(() => (copyTextBtn.textContent = "Copy as plain text"), 1500); });
+  });
+
+  previewModal.hidden = false;
+}
+
+function hidePreview() { previewModal.hidden = true; previewContent.innerHTML = ""; }
+previewClose.addEventListener("click", hidePreview);
+previewModal.querySelector(".modal__backdrop").addEventListener("click", hidePreview);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !previewModal.hidden) hidePreview(); });
 
 refresh();

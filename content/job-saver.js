@@ -329,13 +329,14 @@
     removeButton();
     injectedForJobId = String(jobId);
 
-    const host =
-      (document.querySelector(".jobs-save-button") ? document.querySelector(".jobs-save-button").parentElement : null) ||
-      root.querySelector(".job-details-jobs-unified-top-card__sticky-buttons-container") ||
-      (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".display-flex, .mt4, .jobs-s-apply") : null) ||
+    // Insert toolbar AFTER LinkedIn's action row (mt4 .display-flex with Easy Apply / Save),
+    // as a separate block. We do not append into LinkedIn's button container, so the
+    // original layout is preserved.
+    const actionRow =
       root.querySelector(".mt4 .display-flex") ||
-      root.querySelector(".job-details-jobs-unified-top-card__container") ||
-      root;
+      root.querySelector(".job-details-jobs-unified-top-card__sticky-buttons-container") ||
+      (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex") : null);
+    const anchor = actionRow && actionRow.parentElement ? actionRow.parentElement : root;
 
     // Toolbar container: Save button + 4 quick-action buttons.
     const toolbar = document.createElement("div");
@@ -381,7 +382,7 @@
       ab.type = "button";
       ab.className = ACTION_BTN_CLASS + " ljs-action-" + key;
       ab.textContent = STATUS_LABELS[key];
-      ab.title = "Mark as: " + STATUS_LABELS[key];
+      ab.title = "Mark as: " + STATUS_LABELS[key] + (key === "ignored" ? " (removes description from storage)" : "");
       ab.dataset.action = key;
       ab.addEventListener("click", async (e) => {
         e.preventDefault();
@@ -393,6 +394,10 @@
         }
         const isAlready = ab.classList.contains(ACTION_BTN_CLASS + "--active");
         const nextStatus = isAlready ? "" : key;
+        // Confirmation for "ignored" — it strips the description from storage.
+        if (nextStatus === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+          return;
+        }
         try {
           ab.disabled = true;
           await setCurrentJobStatus(meta, nextStatus);
@@ -422,7 +427,14 @@
       }).catch(() => {});
     }
 
-    host.appendChild(toolbar);
+    // Insert AFTER the LinkedIn action row, as a sibling. Falls back to append at end.
+    if (actionRow && actionRow.nextSibling) {
+      anchor.insertBefore(toolbar, actionRow.nextSibling);
+    } else if (actionRow) {
+      anchor.appendChild(toolbar);
+    } else {
+      root.appendChild(toolbar);
+    }
   }
 
   // ---------- Auto-registering seen jobs (detail) ----------

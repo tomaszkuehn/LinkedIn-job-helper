@@ -75,6 +75,10 @@ function renderSaved(list) {
     const statusSel = node.querySelector(".row__status");
     statusSel.value = job.status || "";
     statusSel.addEventListener("change", async () => {
+      if (statusSel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+        statusSel.value = job.status || "";
+        return;
+      }
       try { await setJobStatus(job.jobId, statusSel.value); toast("Status updated"); }
       catch (e) { alert("Status error: " + e.message); }
     });
@@ -105,6 +109,10 @@ function renderSeen(list) {
     const statusSel = node.querySelector(".row__status");
     statusSel.value = s.status || "";
     statusSel.addEventListener("change", async () => {
+      if (statusSel.value === "ignored" && !confirm('Marking as "Ignore" removes the job description from storage to save space (fingerprint + metadata are kept for repost detection).\n\nContinue?')) {
+        statusSel.value = s.status || "";
+        return;
+      }
       try { await setSeenStatus(s.fingerprint, statusSel.value); await refresh(); }
       catch (e) { alert("Status error: " + e.message); }
     });

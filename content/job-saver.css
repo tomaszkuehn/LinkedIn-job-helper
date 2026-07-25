@@ -22,13 +22,17 @@
 #ljs-save-btn.ljs-save-btn--saved:hover { background: #046238; }
 #ljs-save-btn.ljs-save-btn--err { background: #b00020; border-color: #b00020; }
 
-/* Toolbar (save + 4 quick action buttons) */
+/* Toolbar (save + 4 quick action buttons) — separate block below LinkedIn's actions */
 .ljs-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  margin: 8px 0;
+  margin: 12px 0 4px 0;
+  padding: 8px 10px;
+  background: #f3f6f8;
+  border: 1px solid #e0e6eb;
+  border-radius: 6px;
 }
 
 /* Quick action buttons */
