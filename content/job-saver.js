@@ -282,6 +282,20 @@
       }
       // Preserve existing status if job already in DB (e.g. user marked Apply then clicked Save).
       const existing = await getJob(meta.jobId);
+      let status = (existing && existing.status) || "";
+      let statusSetAt = (existing && existing.statusSetAt) || null;
+      // If job has no status yet, check the seen entry (user may have marked Apply
+      // before clicking Save — the status lives on the seen entry keyed by fingerprint).
+      if (!status && meta.descriptionText) {
+        try {
+          const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
+          const seenEntry = await getSeenByFp(fp);
+          if (seenEntry && seenEntry.status) {
+            status = seenEntry.status;
+            statusSetAt = seenEntry.statusSetAt || null;
+          }
+        } catch (e) { console.warn("[LJS] status lookup from seen failed", e); }
+      }
       const job = {
         jobId: meta.jobId,
         title: meta.title,
@@ -292,8 +306,8 @@
         descriptionText: meta.descriptionText || "",
         savedAt: new Date().toISOString(),
         sourceUrl: location.href,
-        status: (existing && existing.status) || "",
-        statusSetAt: (existing && existing.statusSetAt) || null,
+        status,
+        statusSetAt,
       };
       await saveJob(job);
       btn.classList.add("ljs-save-btn--saved");
