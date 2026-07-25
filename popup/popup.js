@@ -71,6 +71,7 @@ function renderSaved(list) {
     node.querySelector(".row__company").textContent = job.company || "";
     node.querySelector(".row__loc").textContent = job.location || "";
     node.querySelector(".row__wp").textContent = formatWorkplace(job.workplaceType, job.city);
+    node.querySelector(".row__salary").textContent = job.salary ? "💰 " + job.salary : "";
     node.querySelector(".row__date").textContent = job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : "";
     node.querySelector(".row__desc").textContent = (job.descriptionText || "").slice(0, 300) + ((job.descriptionText || "").length > 300 ? "…" : "");
     const statusSel = node.querySelector(".row__status");
@@ -104,6 +105,7 @@ function renderSeen(list) {
     const repost = (s.jobIds || []).length > 1;
     node.querySelector(".row__seen-count").textContent = "👁 " + (s.seenCount || 1) + "× seen" + (repost ? " (repost!)" : "");
     node.querySelector(".row__wp").textContent = formatWorkplace(s.workplaceType, s.city);
+    node.querySelector(".row__salary").textContent = s.salary ? "💰 " + s.salary : "";
     node.querySelector(".row__first").textContent = "first: " + (s.firstSeenAt ? new Date(s.firstSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__last").textContent = "last: " + (s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__ids").textContent = "jobIds: " + (s.jobIds || []).join(", ");

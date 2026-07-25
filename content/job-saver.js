@@ -493,6 +493,10 @@
     if (!workplaceType) workplaceType = _wa.workplaceType;
     const city = _wa.city;
 
+    // Salary: LinkedIn sometimes shows it in the top-card metadata area (a tvm__text
+    // with currency symbols) or in the description text. We try both paths.
+    const salary = scrapeSalary(root, _descText);
+
     return {
       jobId: String(jobId),
       title: textClean(titleEl),
@@ -500,10 +504,59 @@
       location,
       workplaceType,
       city,
+      salary,
       url: "https://www.linkedin.com/jobs/view/" + jobId + "/",
       descriptionHtml: descEl ? descEl.innerHTML : "",
       descriptionText: _descText,
     };
+  }
+
+  // Try to extract a salary string from the detail page.
+  // Path 1: LinkedIn's salary UI element (varies by listing / locale).
+  //   - .job-details-jobs-unified-top-card__salary, .job-details-jobs-unified-top-card__salary-info
+  //   - a tvm__text containing a currency symbol (€/$/£/PLN/EUR/USD) or "per year/month"
+  // Path 2: regex over the description text (fallback).
+  function scrapeSalary(root, descText) {
+    // Path 1: dedicated salary containers.
+    const salaryEls = root.querySelectorAll(
+      ".job-details-jobs-unified-top-card__salary, " +
+      ".job-details-jobs-unified-top-card__salary-info, " +
+      ".jobs-unified-top-card__salary-info, " +
+      ".job-details-jobs-unified-top-card__body--secondary .tvm__text"
+    );
+    for (const el of salaryEls) {
+      const t = (el.textContent || "").trim();
+      if (!t) continue;
+      // Must contain a currency indicator to be a salary, not just "Full-time".
+      if (/[€$£]|EUR|USD|PLN|GBP|per\s+(year|month|hour|annum|year)|jährlich|monatlich|stündlich|\/\s*(year|month|hour|Jahr|Monat)/i.test(t)) {
+        const cleaned = t.replace(/\s+/g, " ").trim();
+        if (cleaned.length >= 3 && cleaned.length <= 120) return cleaned;
+      }
+    }
+    // Path 2: regex over description text.
+    const desc = String(descText || "");
+    if (desc) {
+      // Match patterns like:
+      //   "Salary: €60,000 - €80,000 per year"
+      //   "Compensation: $120k/year"
+      //   "Vergütung: 60.000 - 80.000 € jährlich"
+      //   "Remuneration: PLN 15,000 - 20,000 / month"
+      //   "Salary range: £40,000 - £60,000"
+      const m = desc.match(
+        /(?:salary|compensation|remuneration|vergütung|entgelt|wynagrodzenie|salary range)\s*[:\-]?\s*([^\n]{3,120}?)(?:\bper\s+(?:year|month|hour|annum)|\b\/\s*(?:year|month|hour|Jahr|Monat|Stunde)|jährlich|monatlich|stündlich)/i
+      );
+      if (m) {
+        const val = (m[0] || "").replace(/\s+/g, " ").trim();
+        if (val.length >= 5 && val.length <= 200) return val;
+      }
+      // Looser: find a line that starts with a currency + numbers.
+      const m2 = desc.match(/(?:^|\n)\s*((?:[€$£]\s?\d[\d.,\s]*k?|(?:EUR|USD|GBP|PLN)\s?\d[\d.,\s]*k?)[^\n]{0,80})/i);
+      if (m2) {
+        const val = m2[1].replace(/\s+/g, " ").trim();
+        if (val.length >= 4 && val.length <= 120) return val;
+      }
+    }
+    return "";
   }
 
   // Scraping card metadata from the list (for the "seen" badge).
@@ -581,6 +634,7 @@
         location: meta.location,
         workplaceType: meta.workplaceType || "",
         city: meta.city || "",
+        salary: meta.salary || "",
         url: meta.url,
         descriptionHtml: meta.descriptionHtml || "",
         descriptionText: meta.descriptionText || "",
@@ -883,6 +937,7 @@
         if (!existing.workplaceType && meta.workplaceType) existing.workplaceType = meta.workplaceType;
         if (!existing.city && meta.city) existing.city = meta.city;
         if (!existing.location && meta.location) existing.location = meta.location;
+        if (!existing.salary && meta.salary) existing.salary = meta.salary;
         await upsertSeen(existing);
       } else {
         await upsertSeen({
@@ -893,6 +948,7 @@
           location: meta.location || "",
           workplaceType: meta.workplaceType || "",
           city: meta.city || "",
+          salary: meta.salary || "",
           descriptionText: meta.descriptionText,
           descriptionHtml: meta.descriptionHtml || "",
           jobIds: [meta.jobId],

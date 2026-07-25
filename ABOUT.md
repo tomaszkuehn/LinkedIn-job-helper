@@ -4,7 +4,8 @@ A Brave browser extension (Manifest V3) for managing LinkedIn job listings more 
 
 ## Features
 
-- **Save to local database** — injects a "Save to DB" button in the LinkedIn job detail panel. Scrapes title, company, location, workplace type, city, URL, and the full job description (`#job-details`). Status set before saving (Apply / Consider / German / Ignore) is carried over to the saved job.
+- **Save to local database** — injects a "Save to DB" button in the LinkedIn job detail panel. Scrapes title, company, location, workplace type, city, salary (when shown), URL, and the full job description (`#job-details`). Status set before saving (Apply / Consider / German / Ignore) is carried over to the saved job.
+- **Salary extraction** — detects the offered salary from LinkedIn's salary UI element (when present) or from the description text (regex over "Salary:" / "Vergütung:" / currency + numbers + "per year/month"). The salary string is stored on both saved jobs and seen entries, shown in popup rows, options tables, and the preview modal.
 - **Workplace type & city detection** — extracts `workplaceType` (remote / hybrid / onsite) and `city` from:
   1. Location metadata (already scraped) — e.g. "Hamburg, Hamburg, Germany (Hybrid)" → workplaceType=hybrid, city=Hamburg
   2. Description text fallback (regex over "Location:" / "Workplace:" sections and phrases like "fully remote", "work from home", "on-site")
@@ -58,6 +59,7 @@ Saved job (`ljs_jobs[jobId]`):
   jobId, title, company, location,
   workplaceType: "" | "remote" | "hybrid" | "onsite",
   city: "",
+  salary: "",
   url,
   descriptionHtml, descriptionText,
   savedAt, sourceUrl,
@@ -73,6 +75,7 @@ Seen entry (`ljs_seen[fingerprint]`):
   title, company, location,
   workplaceType: "" | "remote" | "hybrid" | "onsite",
   city: "",
+  salary: "",
   descriptionText, descriptionHtml,   // empty when status === "ignored"
   jobIds: […],
   firstSeenAt, lastSeenAt, seenCount,

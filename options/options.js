@@ -103,6 +103,7 @@ function renderSaved() {
       <td>${escHtml(job.location || "")}</td>
       <td>${escHtml(WP_LABELS_OPT[job.workplaceType] || "—")}</td>
       <td>${escHtml(job.city || "—")}</td>
+      <td>${escHtml(job.salary || "—")}</td>
       <td>
         <select data-job-status="${escAttr(job.jobId)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
           <option value=""${!job.status ? " selected" : ""}>—</option>
@@ -173,6 +174,7 @@ function renderSeen() {
       <td>${escHtml(s.company || "")}</td>
       <td>${escHtml(WP_LABELS_OPT[s.workplaceType] || "—")}</td>
       <td>${escHtml(s.city || "—")}</td>
+      <td>${escHtml(s.salary || "—")}</td>
       <td class="${repost ? "repost" : ""}">${repost ? "🔁 repost" : "1×"} (seenCount: ${s.seenCount || 1})</td>
       <td>
         <select data-seen-status="${escAttr(s.fingerprint)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
@@ -361,6 +363,7 @@ function showPreview(job, kind) {
       ${job.location ? "<span>📍 " + escHtml(job.location) + "</span>" : ""}
       ${job.workplaceType ? "<span>" + escHtml(WP_LABELS_OPT[job.workplaceType] || job.workplaceType) + "</span>" : ""}
       ${job.city ? "<span>🏙 " + escHtml(job.city) + "</span>" : ""}
+      ${job.salary ? "<span>💰 " + escHtml(job.salary) + "</span>" : ""}
       <span class="pv-status pv-status--${escAttr(status || "none")}">Status: ${escHtml(statusLabel)}</span>
       ${dateLabel ? "<span>" + escHtml(dateLabel) + "</span>" : ""}
       ${kind === "seen" && job.seenCount ? "<span>Seen " + job.seenCount + "×</span>" : ""}
