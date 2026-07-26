@@ -1,95 +1,215 @@
-/* Save button in the job detail panel */
+/* === LinkedIn Job Helper — injected toolbar === */
+/* Elegancki, własny design (nie imituje LinkedIn). Ciemny nagłówek, jasne ciało. */
+
+/* Container */
+.ljs-toolbar {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  margin: 14px 0 6px 0;
+  padding: 0;
+  background: #ffffff;
+  border: 1px solid #d4dae0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  overflow: hidden;
+  font: 13px/1.4 "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Title bar — ciemny gradient, pełna szerokość nad przyciskami */
+.ljs-toolbar__title {
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #1a2233 0%, #2a3447 100%);
+  color: #e8ecf1;
+  font: 600 12px/1 "Segoe UI", Arial, sans-serif;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #1a2233;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.ljs-toolbar__title::before {
+  content: "◆";
+  color: #5b8def;
+  font-size: 11px;
+}
+
+/* Banner slot — integrated below title, above buttons */
+.ljs-toolbar__banner-slot {
+  flex-shrink: 0;
+}
+
+/* Body — przyciski w wierszach */
+.ljs-toolbar__row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 8px 12px;
+  border-top: 1px solid #eef0f3;
+  flex-wrap: wrap;
+  min-height: 50px;
+}
+.ljs-toolbar__row:first-of-type { border-top: none; }
+.ljs-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ljs-toolbar__spacer { flex: 1 1 40px; min-width: 20px; }
+.ljs-toolbar__sep {
+  width: 1px;
+  height: 28px;
+  background: #e0e4e8;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Save button — primary, akcent indygo */
 #ljs-save-btn {
   appearance: none;
-  border: 1px solid rgba(0,0,0,.6);
-  background: #0a66c2;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   color: #fff;
   font: 600 13px/1 "Segoe UI", Arial, sans-serif;
-  padding: 8px 16px;
-  border-radius: 18px;
+  padding: 9px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all .18s ease;
+  box-shadow: 0 2px 6px rgba(79,70,229,.3);
+  letter-spacing: .2px;
+}
+#ljs-save-btn:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+  box-shadow: 0 3px 10px rgba(79,70,229,.4);
+  transform: translateY(-1px);
+}
+#ljs-save-btn:active { transform: translateY(0) scale(.98); }
+#ljs-save-btn:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
+.ljs-save-btn__icon { font-size: 15px; line-height: 1; }
+.ljs-save-btn__text { font-size: 13px; }
+
+#ljs-save-btn.ljs-save-btn--saved {
+  background: linear-gradient(135deg, #057642 0%, #046238 100%);
+  box-shadow: 0 2px 6px rgba(5,118,66,.3);
+}
+#ljs-save-btn.ljs-save-btn--saved:hover {
+  background: linear-gradient(135deg, #046238 0%, #035328 100%);
+  box-shadow: 0 3px 10px rgba(5,118,66,.4);
+}
+#ljs-save-btn.ljs-save-btn--err {
+  background: linear-gradient(135deg, #b00020 0%, #8b0019 100%);
+  box-shadow: 0 2px 6px rgba(176,0,32,.3);
+}
+
+/* Quick action buttons — outline, bigger, toggle-style */
+.ljs-action-btn {
+  appearance: none;
+  border: 1px solid #c8ccd2;
+  background: #fff;
+  color: #444;
+  font: 600 13px/1 "Segoe UI", Arial, sans-serif;
+  padding: 8px 14px;
+  border-radius: 7px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 8px 0 8px 8px;
-  transition: background .15s, opacity .15s;
-  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+  transition: all .18s ease;
+  min-height: 34px;
 }
-#ljs-save-btn:hover { background: #004182; }
-#ljs-save-btn:disabled { opacity: .55; cursor: default; }
-
-#ljs-save-btn.ljs-save-btn--saved { background: #057642; border-color: #057642; }
-#ljs-save-btn.ljs-save-btn--saved:hover { background: #046238; }
-#ljs-save-btn.ljs-save-btn--err { background: #b00020; border-color: #b00020; }
-
-/* Toolbar (save + 4 quick action buttons) — separate block below LinkedIn's actions */
-.ljs-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  margin: 12px 0 4px 0;
-  padding: 8px 10px;
-  background: #f3f6f8;
-  border: 1px solid #e0e6eb;
-  border-radius: 6px;
+.ljs-action-btn:hover {
+  background: #f5f7fa;
+  border-color: #9ba3ad;
+  transform: translateY(-1px);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
+.ljs-action-btn:active { transform: translateY(0) scale(.97); }
+.ljs-action-btn:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
+.ljs-action-btn__icon { font-size: 14px; line-height: 1; width: 16px; text-align: center; }
+.ljs-action-btn__text { font-size: 13px; }
 
-/* Quick action buttons */
-.ljs-action-btn {
-  appearance: none;
-  border: 1px solid #ccc;
-  background: #fff;
-  color: #555;
-  font: 600 12px/1 "Segoe UI", Arial, sans-serif;
-  padding: 6px 12px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
-}
-.ljs-action-btn:hover { background: #f0f0f0; }
-.ljs-action-btn:disabled { opacity: .55; cursor: default; }
-
+/* Active (selected) states — filled with semantic color */
 .ljs-action-btn.ljs-action-btn--active {
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
 }
-.ljs-action-apply.ljs-action-btn--active     { background: #057642; }
-.ljs-action-to-consider.ljs-action-btn--active { background: #915907; }
-.ljs-action-german.ljs-action-btn--active    { background: #0a66c2; }
-.ljs-action-ignored.ljs-action-btn--active   { background: #6b6b6b; }
+.ljs-action-apply.ljs-action-btn--active {
+  background: linear-gradient(135deg, #057642 0%, #046238 100%);
+}
+.ljs-action-to-consider.ljs-action-btn--active {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+}
+.ljs-action-german.ljs-action-btn--active {
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+}
+.ljs-action-ignored.ljs-action-btn--active {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+}
 
-/* Preference banner (green/red) below toolbar */
-.ljs-pref-banner {
-  margin: 6px 0 8px 0;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font: 600 13px/1.4 "Segoe UI", Arial, sans-serif;
-  border: 1px solid transparent;
+/* Panel button — subtle, ghost style */
+.ljs-options-btn {
+  border-color: #c8ccd2 !important;
+  color: #6b7280 !important;
+  background: #fff !important;
 }
+.ljs-options-btn:hover {
+  background: #f5f7fa !important;
+  color: #374151 !important;
+  border-color: #9ba3ad !important;
+}
+
+/* Preference banner — integrated inside toolbar, below title */
+.ljs-pref-banner {
+  padding: 10px 14px;
+  font: 500 13px/1.4 "Segoe UI", Arial, sans-serif;
+  border-top: 1px solid #eef0f3;
+  border-bottom: 1px solid #eef0f3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ljs-pref-banner__icon {
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.ljs-pref-banner__text { flex: 1; min-width: 0; }
 .ljs-pref-banner--good {
-  background: #e6f4ec;
-  color: #057642;
-  border-color: #bfe3cf;
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
 }
 .ljs-pref-banner--bad {
-  background: #fde7e9;
-  color: #b00020;
-  border-color: #f5b5bd;
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
 }
 .ljs-pref-banner--neutral {
-  background: #f0f0f0;
-  color: #555;
-  border-color: #d6d6d6;
+  background: #f9fafb;
+  color: #6b7280;
+  border-color: #e5e7eb;
 }
 
-/* Options button in toolbar */
-.ljs-options-btn {
-  border: 1px solid #999 !important;
-  background: #f7f9fa !important;
-  color: #555 !important;
+/* Responsive — na wąskich ekranach przyciski się zawijają, Panel zostaje w wierszu 1 */
+@media (max-width: 640px) {
+  .ljs-toolbar__row { padding: 8px 10px; }
+  .ljs-toolbar__spacer { flex: 1 1 20px; min-width: 12px; }
+  .ljs-action-btn { padding: 7px 10px; font-size: 12px; }
+  #ljs-save-btn { padding: 8px 14px; }
+  .ljs-pref-banner { padding: 8px 10px; font-size: 12px; }
 }
-.ljs-options-btn:hover { background: #eef2f5 !important; }
 
 /* Options overlay (inline modal in the page) */
 .ljs-overlay { position: fixed; inset: 0; z-index: 2147483645; display: flex; align-items: center; justify-content: center; padding: 16px; }

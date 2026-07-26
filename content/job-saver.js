@@ -435,19 +435,39 @@
   }
 
   function currentJobId(root) {
+    // 1) URL path /jobs/view/<id>
     const m = location.pathname.match(/\/jobs\/view\/(\d+)/);
     if (m) return m[1];
+    // 2) URL query param currentJobId=<id>
+    const qm = location.search.match(/[?&]currentJobId=(\d+)/);
+    if (qm) return qm[1];
+    // 3) Active job card on the list (two-pane view)
     const active = document.querySelector(
       ".job-card-container[data-job-id].jobs-search-results-list__list-item--active, " +
-      ".job-card-container[data-job-id][aria-current='page']"
+      ".job-card-container[data-job-id][aria-current='page'], " +
+      ".jobs-search-results__list-item--active .job-card-list[data-job-id], " +
+      ".jobs-search-results__list-item--active .job-card-container[data-job-id]"
     );
     if (active) return active.getAttribute("data-job-id");
+    // 4) Any element with data-job-id inside the detail root
     if (root) {
-      const applyBtn = root.querySelector("[data-job-id]");
-      if (applyBtn) return applyBtn.getAttribute("data-job-id");
+      const el = root.querySelector("[data-job-id]");
+      if (el) return el.getAttribute("data-job-id");
     }
+    // 5) Apply button anywhere
     const anyApply = document.querySelector(".jobs-apply-button[data-job-id], [data-live-test-job-apply-button][data-job-id]");
     if (anyApply) return anyApply.getAttribute("data-job-id");
+    // 6) og:url meta or canonical with /jobs/view/<id>/
+    const og = document.querySelector('meta[property="og:url"][content]');
+    if (og) {
+      const om = og.getAttribute("content").match(/\/jobs\/view\/(\d+)/);
+      if (om) return om[1];
+    }
+    const canon = document.querySelector('link[rel="canonical"][href]');
+    if (canon) {
+      const cm = canon.getAttribute("href").match(/\/jobs\/view\/(\d+)/);
+      if (cm) return cm[1];
+    }
     return null;
   }
 
@@ -630,8 +650,9 @@
 
   async function handleSave(btn, meta) {
     btn.disabled = true;
-    const original = btn.textContent;
-    btn.textContent = "Saving…";
+    const original = btn.innerHTML;
+    btn.querySelector(".ljs-save-btn__text").textContent = "Saving…";
+    btn.querySelector(".ljs-save-btn__icon").textContent = "…";
     try {
       if (!meta.descriptionHtml) {
         await new Promise(r => setTimeout(r, 600));
@@ -679,16 +700,18 @@
       };
       await saveJob(job);
       btn.classList.add("ljs-save-btn--saved");
-      btn.textContent = "✓ Saved";
+      btn.querySelector(".ljs-save-btn__text").textContent = "Saved";
+      btn.querySelector(".ljs-save-btn__icon").textContent = "✓";
       toast("Saved: " + (job.title || meta.jobId), "ok");
     } catch (e) {
       console.error("[LJS] save error", e);
       btn.classList.add("ljs-save-btn--err");
-      btn.textContent = "Error!";
+      btn.querySelector(".ljs-save-btn__text").textContent = "Error";
+      btn.querySelector(".ljs-save-btn__icon").textContent = "✕";
       toast("Save error: " + (e.message || e), "err");
       setTimeout(() => {
         btn.classList.remove("ljs-save-btn--err");
-        btn.textContent = original;
+        btn.innerHTML = original;
       }, 2000);
     } finally {
       btn.disabled = false;
@@ -698,6 +721,7 @@
   const BTN_ID = "ljs-save-btn";
   const TOOLBAR_ID = "ljs-toolbar";
   const ACTION_BTN_CLASS = "ljs-action-btn";
+  const PREF_BANNER_ID = "ljs-pref-banner";
   let injectedForJobId = null;
 
   function removeButton() {
@@ -708,6 +732,7 @@
   }
 
   function injectSaveButton() {
+    if (!checkCtx()) return;
     const root = findDetailRoot();
     if (!root) { removeButton(); return; }
     const jobId = currentJobId(root);
@@ -715,6 +740,7 @@
     if (injectedForJobId === String(jobId) && document.getElementById(TOOLBAR_ID)) return;
     removeButton();
     injectedForJobId = String(jobId);
+    console.log("[LJS] injectSaveButton — jobId:", jobId, "root:", root.className);
 
     // Insert toolbar AFTER LinkedIn's action row (mt4 .display-flex with Easy Apply / Save),
     // as a separate block. We do not append into LinkedIn's button container, so the
@@ -725,22 +751,43 @@
       (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex") : null);
     const anchor = actionRow && actionRow.parentElement ? actionRow.parentElement : root;
 
-    // Toolbar container: Save button + 4 quick-action buttons.
+    // Toolbar container: title + two rows.
+    // Row 1: [Save] [Panel]     Row 2: [Apply][Consider][German][Ignore]
     const toolbar = document.createElement("div");
     toolbar.id = TOOLBAR_ID;
     toolbar.className = "ljs-toolbar";
+
+    // --- Title ---
+    const title = document.createElement("div");
+    title.className = "ljs-toolbar__title";
+    title.textContent = "LinkedIn Job Helper";
+    toolbar.appendChild(title);
+
+    // --- Preference banner slot (integrated below title) ---
+    const bannerSlot = document.createElement("div");
+    bannerSlot.id = PREF_BANNER_ID + "-slot";
+    bannerSlot.className = "ljs-toolbar__banner-slot";
+    toolbar.appendChild(bannerSlot);
+
+    // --- Row 1: Save + Panel ---
+    const row1 = document.createElement("div");
+    row1.className = "ljs-toolbar__row";
+
+    const saveGroup = document.createElement("div");
+    saveGroup.className = "ljs-toolbar__group";
 
     const btn = document.createElement("button");
     btn.id = BTN_ID;
     btn.className = "ljs-save-btn";
     btn.type = "button";
-    btn.textContent = "💾 Save to DB";
+    btn.innerHTML = '<span class="ljs-save-btn__icon">💾</span><span class="ljs-save-btn__text">Save</span>';
     btn.title = "Save this job to the local database (LinkedIn Job Saver)";
 
     isAlreadySaved(jobId).then(saved => {
       if (saved) {
         btn.classList.add("ljs-save-btn--saved");
-        btn.textContent = "✓ Saved";
+        btn.querySelector(".ljs-save-btn__text").textContent = "Saved";
+        btn.querySelector(".ljs-save-btn__icon").textContent = "✓";
       }
     });
 
@@ -759,17 +806,49 @@
       await handleSave(btn, meta);
     });
 
-    toolbar.appendChild(btn);
+    saveGroup.appendChild(btn);
+    row1.appendChild(saveGroup);
+
+    // --- Spacer pushes Panel to the right ---
+    const spacer = document.createElement("div");
+    spacer.className = "ljs-toolbar__spacer";
+    row1.appendChild(spacer);
+
+    // --- Panel button (in row 1, right-aligned) ---
+    const utilGroup = document.createElement("div");
+    utilGroup.className = "ljs-toolbar__group";
+
+    const optsBtn = document.createElement("button");
+    optsBtn.type = "button";
+    optsBtn.className = "ljs-action-btn ljs-options-btn";
+    optsBtn.innerHTML = '<span class="ljs-action-btn__icon">⚙</span><span class="ljs-action-btn__text">Panel</span>';
+    optsBtn.title = "Open LinkedIn Job Helper panel (preferences, saved & seen jobs, backup)";
+    optsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openOptionsOverlay();
+    });
+    utilGroup.appendChild(optsBtn);
+    row1.appendChild(utilGroup);
+    toolbar.appendChild(row1);
+
+    // --- Row 2: Quick status actions ---
+    const row2 = document.createElement("div");
+    row2.className = "ljs-toolbar__row";
+
+    const statusGroup = document.createElement("div");
+    statusGroup.className = "ljs-toolbar__group";
 
     // Quick-action buttons. "applied" is options-only (set via popup/options dropdowns).
     const ACTIONS = ["apply", "to-consider", "german", "ignored"];
+    const STATUS_ICONS = { "apply": "✓", "to-consider": "★", "german": "🇩🇪", "ignored": "✕" };
     const actionBtns = {};
     for (const key of ACTIONS) {
       const ab = document.createElement("button");
       ab.type = "button";
       ab.className = ACTION_BTN_CLASS + " ljs-action-" + key;
-      ab.textContent = STATUS_LABELS[key];
-      ab.title = "Mark as: " + STATUS_LABELS[key] + (key === "ignored" ? " (removes description from storage)" : "");
+      ab.innerHTML = '<span class="ljs-action-btn__icon">' + STATUS_ICONS[key] + '</span><span class="ljs-action-btn__text">' + STATUS_LABELS[key] + '</span>';
+      ab.title = "Mark as: " + STATUS_LABELS[key] + (key === "ignored" ? " (removes from saved, drops description from seen)" : "");
       ab.dataset.action = key;
       ab.addEventListener("click", async (e) => {
         e.preventDefault();
@@ -819,7 +898,8 @@
           } else if (nextStatus === "ignored") {
             // Update Save button visual state — job was removed from saved.
             btn.classList.remove("ljs-save-btn--saved");
-            btn.textContent = "Save to DB";
+            btn.querySelector(".ljs-save-btn__text").textContent = "Save";
+            btn.querySelector(".ljs-save-btn__icon").textContent = "💾";
           }
           toast(isAlready ? ("Cleared: " + STATUS_LABELS[key]) : ("Marked: " + STATUS_LABELS[key]), "ok");
         } catch (err) {
@@ -830,21 +910,10 @@
         }
       });
       actionBtns[key] = ab;
-      toolbar.appendChild(ab);
+      statusGroup.appendChild(ab);
     }
-
-    // OPTIONS button — opens an inline overlay with extension settings.
-    const optsBtn = document.createElement("button");
-    optsBtn.type = "button";
-    optsBtn.className = "ljs-action-btn ljs-options-btn";
-    optsBtn.textContent = "⚙ Options";
-    optsBtn.title = "Open extension options overlay";
-    optsBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openOptionsOverlay();
-    });
-    toolbar.appendChild(optsBtn);
+    row2.appendChild(statusGroup);
+    toolbar.appendChild(row2);
 
     // Reflect existing status (async, may resolve after append).
     const meta0 = scrapeFromDetail(root, jobId);
@@ -864,17 +933,16 @@
     } else {
       root.appendChild(toolbar);
     }
+    console.log("[LJS] toolbar appended — in DOM:", !!document.getElementById(TOOLBAR_ID), "actionRow:", !!actionRow, "anchor:", anchor.className.slice(0,60));
 
     // Preference banner: green if remote or (onsite/hybrid in a preferred city),
     // red if onsite/hybrid not in a preferred city, neutral/none otherwise.
     refreshPreferenceBanner(root, jobId);
   }
 
-  const PREF_BANNER_ID = "ljs-pref-banner";
-
   function removePrefBanner() {
-    const b = document.getElementById(PREF_BANNER_ID);
-    if (b) b.remove();
+    const slot = document.getElementById(PREF_BANNER_ID + "-slot");
+    if (slot) slot.innerHTML = "";
   }
 
   function refreshPreferenceBanner(root, jobId) {
@@ -912,17 +980,14 @@
       removePrefBanner();
       // Show banner for good and bad. For neutral (unknown workplace / no cities),
       // show an informational banner so the user sees the feature is active.
+      const slot = document.getElementById(PREF_BANNER_ID + "-slot");
+      if (!slot) return;
       const banner = document.createElement("div");
       banner.id = PREF_BANNER_ID;
       banner.className = "ljs-pref-banner ljs-pref-banner--" + ev.verdict;
       const icon = ev.verdict === "good" ? "✓" : ev.verdict === "bad" ? "✗" : "•";
-      banner.textContent = icon + " " + ev.reason;
-      // Insert after the toolbar if present, else after the action row.
-      const toolbar = document.getElementById(TOOLBAR_ID);
-      const anchor = toolbar ? toolbar.parentElement : root;
-      const ref = toolbar ? toolbar.nextSibling : null;
-      if (ref) anchor.insertBefore(banner, ref);
-      else anchor.appendChild(banner);
+      banner.innerHTML = '<span class="ljs-pref-banner__icon">' + icon + '</span><span class="ljs-pref-banner__text">' + ev.reason + '</span>';
+      slot.appendChild(banner);
     }).catch((e) => console.warn("[LJS] preference banner error", e));
   }
 
@@ -1132,12 +1197,13 @@
   }
 
   function scanAll() {
+    const root = findDetailRoot();
+    const jobId = root ? currentJobId(root) : null;
+    console.log("[LJS] scanAll — root:", root ? root.className.slice(0,80) : "null", "jobId:", jobId);
     injectSaveButton();
     injectCardBadges();
 
     // Auto-record seen dla bieżącego detalu.
-    const root = findDetailRoot();
-    const jobId = root ? currentJobId(root) : null;
     if (root && jobId) {
       const meta = scrapeFromDetail(root, jobId);
       if (meta.descriptionText && meta.descriptionText.length > 50) {
