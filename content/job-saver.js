@@ -651,7 +651,6 @@
   async function handleSave(btn, meta) {
     btn.disabled = true;
     const original = btn.innerHTML;
-    btn.querySelector(".ljs-save-btn__text").textContent = "Saving…";
     btn.querySelector(".ljs-save-btn__icon").textContent = "…";
     try {
       if (!meta.descriptionHtml) {
@@ -700,13 +699,11 @@
       };
       await saveJob(job);
       btn.classList.add("ljs-save-btn--saved");
-      btn.querySelector(".ljs-save-btn__text").textContent = "Saved";
       btn.querySelector(".ljs-save-btn__icon").textContent = "✓";
       toast("Saved: " + (job.title || meta.jobId), "ok");
     } catch (e) {
       console.error("[LJS] save error", e);
       btn.classList.add("ljs-save-btn--err");
-      btn.querySelector(".ljs-save-btn__text").textContent = "Error";
       btn.querySelector(".ljs-save-btn__icon").textContent = "✕";
       toast("Save error: " + (e.message || e), "err");
       setTimeout(() => {
@@ -769,9 +766,15 @@
     bannerSlot.className = "ljs-toolbar__banner-slot";
     toolbar.appendChild(bannerSlot);
 
-    // --- Row 1: Save + Panel ---
-    const row1 = document.createElement("div");
-    row1.className = "ljs-toolbar__row";
+    // --- Info bar: seen status, repost, action history ---
+    const infoBar = document.createElement("div");
+    infoBar.id = "ljs-info-bar";
+    infoBar.className = "ljs-info-bar";
+    toolbar.appendChild(infoBar);
+
+    // --- Single row: Save | status buttons | Panel ---
+    const row = document.createElement("div");
+    row.className = "ljs-toolbar__row";
 
     const saveGroup = document.createElement("div");
     saveGroup.className = "ljs-toolbar__group";
@@ -780,13 +783,12 @@
     btn.id = BTN_ID;
     btn.className = "ljs-save-btn";
     btn.type = "button";
-    btn.innerHTML = '<span class="ljs-save-btn__icon">💾</span><span class="ljs-save-btn__text">Save</span>';
+    btn.innerHTML = '<span class="ljs-save-btn__icon">💾</span>';
     btn.title = "Save this job to the local database (LinkedIn Job Saver)";
 
     isAlreadySaved(jobId).then(saved => {
       if (saved) {
         btn.classList.add("ljs-save-btn--saved");
-        btn.querySelector(".ljs-save-btn__text").textContent = "Saved";
         btn.querySelector(".ljs-save-btn__icon").textContent = "✓";
       }
     });
@@ -804,38 +806,18 @@
         return;
       }
       await handleSave(btn, meta);
+      refreshInfoBar(root, jobId);
     });
 
     saveGroup.appendChild(btn);
-    row1.appendChild(saveGroup);
+    row.appendChild(saveGroup);
 
-    // --- Spacer pushes Panel to the right ---
-    const spacer = document.createElement("div");
-    spacer.className = "ljs-toolbar__spacer";
-    row1.appendChild(spacer);
+    // --- Separator ---
+    const sep1 = document.createElement("div");
+    sep1.className = "ljs-toolbar__sep";
+    row.appendChild(sep1);
 
-    // --- Panel button (in row 1, right-aligned) ---
-    const utilGroup = document.createElement("div");
-    utilGroup.className = "ljs-toolbar__group";
-
-    const optsBtn = document.createElement("button");
-    optsBtn.type = "button";
-    optsBtn.className = "ljs-action-btn ljs-options-btn";
-    optsBtn.innerHTML = '<span class="ljs-action-btn__icon">⚙</span><span class="ljs-action-btn__text">Panel</span>';
-    optsBtn.title = "Open LinkedIn Job Helper panel (preferences, saved & seen jobs, backup)";
-    optsBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openOptionsOverlay();
-    });
-    utilGroup.appendChild(optsBtn);
-    row1.appendChild(utilGroup);
-    toolbar.appendChild(row1);
-
-    // --- Row 2: Quick status actions ---
-    const row2 = document.createElement("div");
-    row2.className = "ljs-toolbar__row";
-
+    // --- Status buttons ---
     const statusGroup = document.createElement("div");
     statusGroup.className = "ljs-toolbar__group";
 
@@ -891,6 +873,7 @@
               }
               if (meta.descriptionHtml) {
                 await handleSave(btn, meta);
+                refreshInfoBar(root, jobId);
               } else {
                 toast("Description not loaded — click Save manually", "err");
               }
@@ -898,10 +881,10 @@
           } else if (nextStatus === "ignored") {
             // Update Save button visual state — job was removed from saved.
             btn.classList.remove("ljs-save-btn--saved");
-            btn.querySelector(".ljs-save-btn__text").textContent = "Save";
             btn.querySelector(".ljs-save-btn__icon").textContent = "💾";
           }
           toast(isAlready ? ("Cleared: " + STATUS_LABELS[key]) : ("Marked: " + STATUS_LABELS[key]), "ok");
+          refreshInfoBar(root, jobId);
         } catch (err) {
           console.error("[LJS] status error", err);
           toast("Status error: " + (err.message || err), "err");
@@ -912,8 +895,26 @@
       actionBtns[key] = ab;
       statusGroup.appendChild(ab);
     }
-    row2.appendChild(statusGroup);
-    toolbar.appendChild(row2);
+    row.appendChild(statusGroup);
+
+    // --- Separator ---
+    const sep2 = document.createElement("div");
+    sep2.className = "ljs-toolbar__sep";
+    row.appendChild(sep2);
+
+    // --- Panel button (black, white text) ---
+    const optsBtn = document.createElement("button");
+    optsBtn.type = "button";
+    optsBtn.className = "ljs-action-btn ljs-options-btn";
+    optsBtn.innerHTML = '<span class="ljs-action-btn__icon">⚙</span><span class="ljs-action-btn__text">Panel</span>';
+    optsBtn.title = "Open LinkedIn Job Helper panel (preferences, saved & seen jobs, backup)";
+    optsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openOptionsOverlay();
+    });
+    row.appendChild(optsBtn);
+    toolbar.appendChild(row);
 
     // Reflect existing status (async, may resolve after append).
     const meta0 = scrapeFromDetail(root, jobId);
@@ -938,6 +939,72 @@
     // Preference banner: green if remote or (onsite/hybrid in a preferred city),
     // red if onsite/hybrid not in a preferred city, neutral/none otherwise.
     refreshPreferenceBanner(root, jobId);
+    // Info bar: seen status, repost detection, action history.
+    refreshInfoBar(root, jobId);
+  }
+
+  function refreshInfoBar(root, jobId) {
+    const infoBar = document.getElementById("ljs-info-bar");
+    if (!infoBar) return;
+    const meta = scrapeFromDetail(root, jobId);
+    if (!meta.title && !meta.company) { infoBar.innerHTML = ""; return; }
+    cardFingerprint(meta.title, meta.company).then(async (cfp) => {
+      try {
+        const matches = await getAllSeenByCardFp(cfp);
+        const chips = [];
+        if (matches.length === 0) {
+          chips.push('<span class="ljs-info-chip ljs-info-chip--new">✨ New — not seen before</span>');
+        } else {
+          // Aggregate info across all matching seen entries.
+          const earliest = matches.reduce((a, b) => (a.firstSeenAt < b.firstSeenAt ? a : b));
+          const latest = matches.reduce((a, b) => (a.lastSeenAt > b.lastSeenAt ? a : b));
+          const totalSeen = matches.reduce((s, e) => s + (e.seenCount || 1), 0);
+          const allJobIds = new Set();
+          for (const e of matches) for (const id of (e.jobIds || [])) allJobIds.add(String(id));
+          const otherIds = [...allJobIds].filter(id => id !== String(jobId));
+          const days = Math.round((Date.now() - new Date(earliest.firstSeenAt).getTime()) / 86400000);
+          const firstDate = new Date(earliest.firstSeenAt).toLocaleDateString("en-US");
+          const lastDate = new Date(latest.lastSeenAt).toLocaleDateString("en-US");
+
+          // Seen chip
+          let seenText = "👁 Seen " + totalSeen + "×";
+          if (days === 0) seenText += " (today)";
+          else if (days === 1) seenText += " (1 day ago)";
+          else seenText += " (" + days + " days ago)";
+          chips.push('<span class="ljs-info-chip ljs-info-chip--seen">' + seenText + '</span>');
+
+          // First/last seen
+          if (firstDate !== lastDate) {
+            chips.push('<span class="ljs-info-chip ljs-info-chip--muted">first: ' + firstDate + ' · last: ' + lastDate + '</span>');
+          } else {
+            chips.push('<span class="ljs-info-chip ljs-info-chip--muted">on ' + firstDate + '</span>');
+          }
+
+          // Repost chip
+          if (otherIds.length > 0) {
+            chips.push('<span class="ljs-info-chip ljs-info-chip--repost">🔁 Repost (' + otherIds.length + ' other ID' + (otherIds.length > 1 ? "s" : "") + ")</span>");
+          }
+
+          // Status chip
+          const statusMatch = matches.find(e => e.status);
+          if (statusMatch && statusMatch.status) {
+            const st = statusMatch.status;
+            const stLabels = { "apply": "Apply", "applied": "Applied", "to-consider": "Consider", "german": "German", "ignored": "Ignored" };
+            const stClass = "ljs-info-chip--status-" + st;
+            chips.push('<span class="ljs-info-chip ' + stClass + '">🏷 ' + (stLabels[st] || st) + '</span>');
+          }
+
+          // Saved chip
+          const savedCheck = await isAlreadySaved(jobId);
+          if (savedCheck) {
+            chips.push('<span class="ljs-info-chip ljs-info-chip--saved">💾 Saved</span>');
+          }
+        }
+        infoBar.innerHTML = chips.join("");
+      } catch (e) {
+        console.warn("[LJS] refreshInfoBar error", e);
+      }
+    }).catch(() => {});
   }
 
   function removePrefBanner() {
