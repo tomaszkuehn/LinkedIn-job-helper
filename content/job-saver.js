@@ -481,8 +481,62 @@
       return topcard;
     }
 
+    // Heuristic fallback: JSON-LD JobPosting schema.
+    // LinkedIn always embeds a <script type="application/ld+json"> with
+    // @type=JobPosting on /jobs/view/<id>/ pages. Use it as a last-resort
+    // signal that this is a job detail page even if CSS class names change.
+    if (hasJobPostingLd()) {
+      // Use <main> or <article> if present, else <body>.
+      return document.querySelector("main") || document.querySelector("article") || document.body;
+    }
+
     // Final fallback: unified top-card alone (better than nothing).
     return document.querySelector(".jobs-unified-top-card") || null;
+  }
+
+  // Detect a JSON-LD JobPosting script in the document.
+  function hasJobPostingLd() {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      try {
+        const data = JSON.parse(s.textContent || "");
+        if (data && data["@type"] === "JobPosting") return true;
+        if (Array.isArray(data) && data.some(d => d && d["@type"] === "JobPosting")) return true;
+        if (data && data["@graph"] && Array.isArray(data["@graph"]) && data["@graph"].some(d => d && d["@type"] === "JobPosting")) return true;
+      } catch (e) { /* ignore malformed */ }
+    }
+    return false;
+  }
+
+  // Extract job metadata from JSON-LD JobPosting (used as a fallback when
+  // CSS selectors fail — e.g. LinkedIn ships a new layout revision).
+  function scrapeFromJobPostingLd() {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const s of scripts) {
+      try {
+        let data = JSON.parse(s.textContent || "");
+        if (Array.isArray(data)) data = data.find(d => d && d["@type"] === "JobPosting");
+        if (data && data["@graph"] && Array.isArray(data["@graph"])) {
+          data = data["@graph"].find(d => d && d["@type"] === "JobPosting") || data;
+        }
+        if (!data || data["@type"] !== "JobPosting") continue;
+        const title = data.title || "";
+        const descHtml = data.description || "";
+        // description is HTML in JSON-LD; strip tags for plain text.
+        const descText = descHtml ? descHtml.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() : "";
+        const company = (data.hiringOrganization && (data.hiringOrganization.name || data.hiringOrganization.alternateName)) || "";
+        const location = data.jobLocation
+          ? (data.jobLocation.address
+              ? [data.jobLocation.address.addressLocality, data.jobLocation.address.addressRegion, data.jobLocation.address.addressCountry].filter(Boolean).join(", ")
+              : "")
+          : (data.jobLocationType || "");
+        const url = data.url || location.href || "";
+        const jobIdMatch = url.match(/\/jobs\/view\/(\d+)/) || location.pathname.match(/\/jobs\/view\/(\d+)/);
+        const jobId = jobIdMatch ? jobIdMatch[1] : "";
+        return { title, company, location, descHtml, descText, url, jobId };
+      } catch (e) { /* ignore */ }
+    }
+    return null;
   }
 
   function currentJobId(root) {
@@ -646,17 +700,37 @@
       }
     }
 
+    let titleStr = textClean(titleEl);
+    let companyStr = textClean(companyEl);
+    let locationStr = location;
+    let descHtml = descEl ? descEl.innerHTML : "";
+    let descStr = _descText;
+
+    // Fallback: if CSS scraping yielded nothing, try JSON-LD JobPosting.
+    if (!titleStr && !companyStr && !descStr) {
+      const ld = scrapeFromJobPostingLd();
+      if (ld) {
+        if (ld.title) titleStr = ld.title;
+        if (ld.company) companyStr = ld.company;
+        if (ld.location) locationStr = ld.location;
+        if (ld.descHtml) descHtml = ld.descHtml;
+        if (ld.descText) descStr = ld.descText;
+        if (!finalJobId && ld.jobId) finalJobId = String(ld.jobId);
+        console.log("[LJS] used JSON-LD fallback for scraping");
+      }
+    }
+
     return {
       jobId: finalJobId,
-      title: textClean(titleEl),
-      company: textClean(companyEl),
-      location,
+      title: titleStr,
+      company: companyStr,
+      location: locationStr,
       workplaceType,
       city,
       salary,
       url: "https://www.linkedin.com/jobs/view/" + finalJobId + "/",
-      descriptionHtml: descEl ? descEl.innerHTML : "",
-      descriptionText: _descText,
+      descriptionHtml: descHtml,
+      descriptionText: descStr,
     };
   }
 
