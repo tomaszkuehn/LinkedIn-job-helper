@@ -490,8 +490,19 @@
     // We prefer the Save/Easy Apply container (the job header) as the root so
     // the toolbar is injected in the header, next to LinkedIn's own buttons —
     // not down in the description section.
-    const saveBtn = document.querySelector('button[aria-label="Save the job"], button[aria-label="Save"], button[aria-label="Saved"], button[aria-label*="Save the job"]');
-    const easyApply = saveBtn || document.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
+    const saveBtn = document.querySelector(
+      'button[aria-label="Save the job"], button[aria-label="Save"], button[aria-label="Saved"], ' +
+      'button[aria-label*="Save the job"], button.jobs-save-button'
+    );
+    const easyApply = saveBtn || document.querySelector(
+      'a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], ' +
+      'button[aria-label*="Easy Apply"], ' +
+      // External "Apply" (off-site).
+      'a[aria-label="Apply"], a[aria-label^="Apply to"], a[aria-label*="Apply on company website"], ' +
+      'button[aria-label="Apply"], button[aria-label^="Apply to"], ' +
+      // Class-based fallbacks (stable across LinkedIn builds).
+      'button.jobs-apply-button, a.jobs-apply-button'
+    );
     if (easyApply) {
       // Climb to the outermost header container that holds title + actions.
       // Stop when we reach an ancestor that also contains a paragraph with
@@ -1096,12 +1107,26 @@
     // Insert toolbar AFTER LinkedIn's action row (Easy Apply / Save buttons),
     // as a separate block. We do not append into LinkedIn's button container, so the
     // original layout is preserved.
-    // Strategy: locate the "Save" / "Easy Apply" buttons by aria-label (stable
-    // across obfuscated class name revisions). We anchor on the CONTAINER that
-    // holds the action buttons (its parent), and insert the toolbar as the next
-    // sibling — i.e. on a new line right after the Save button row.
-    const saveJobBtn = root.querySelector('button[aria-label="Save the job"], button[aria-label="Save"], button[aria-label="Saved"], button[aria-label*="Save the job"]');
-    const easyApplyBtn = root.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
+    // Strategy: locate the "Save" / "Apply" buttons by aria-label OR stable class
+    // (jobs-save-button / jobs-apply-button). The aria-label approach is preferred
+    // (stable across obfuscated class name revisions), but on some listings the
+    // Save button has NO aria-label — its accessible text lives in an inner
+    // <span class="a11y-text"> — and on external-offer pages the apply button
+    // is "Apply" (not "Easy Apply"), so aria-label*="Easy Apply" misses it. The
+    // class-based selectors cover both cases.
+    const saveJobBtn = root.querySelector(
+      'button[aria-label="Save the job"], button[aria-label="Save"], button[aria-label="Saved"], ' +
+      'button[aria-label*="Save the job"], button.jobs-save-button'
+    );
+    const applyBtnAny = root.querySelector(
+      'a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], ' +
+      'button[aria-label*="Easy Apply"], ' +
+      // External "Apply" (off-site) — link or button with "Apply" label (but NOT "Easy Apply").
+      'a[aria-label="Apply"], a[aria-label^="Apply to"], a[aria-label*="Apply on company website"], ' +
+      'button[aria-label="Apply"], button[aria-label^="Apply to"], ' +
+      // Class-based fallbacks (stable across LinkedIn builds).
+      'button.jobs-apply-button, a.jobs-apply-button'
+    );
     // The "actionRow" is the innermost container that holds the Save button;
     // we insert AFTER it (as its parent's next child) so the toolbar appears
     // on its own line below the LinkedIn buttons.
@@ -1114,10 +1139,15 @@
       while (n && n !== root) {
         const parent = n.parentElement;
         if (!parent) break;
-        // If parent contains both Save and Easy Apply (or parent has 2+ button/link
+        // If parent contains both Save and Apply (or parent has 2+ button/link
         // children), treat parent as the action row.
-        const actionKids = parent.querySelectorAll('button[aria-label*="Save"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
-        if (actionKids.length >= 2 || (actionKids.length >= 1 && easyApplyBtn && parent.contains(easyApplyBtn))) {
+        const actionKids = parent.querySelectorAll(
+          'button[aria-label*="Save"], button.jobs-save-button, ' +
+          'a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], ' +
+          'a[aria-label*="Apply"], button[aria-label*="Apply"], ' +
+          'button.jobs-apply-button, a.jobs-apply-button'
+        );
+        if (actionKids.length >= 2 || (actionKids.length >= 1 && applyBtnAny && parent.contains(applyBtnAny))) {
           actionRow = parent;
           break;
         }
@@ -1126,18 +1156,23 @@
       }
       if (!actionRow) actionRow = saveJobBtn.parentElement;
     }
-    if (!actionRow && easyApplyBtn) {
-      // Same logic climbing from Easy Apply.
-      let n = easyApplyBtn;
+    if (!actionRow && applyBtnAny) {
+      // Same logic climbing from Apply (Easy or external).
+      let n = applyBtnAny;
       while (n && n !== root) {
         const parent = n.parentElement;
         if (!parent) break;
-        const actionKids = parent.querySelectorAll('a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], button[aria-label*="Save"]');
+        const actionKids = parent.querySelectorAll(
+          'a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], ' +
+          'a[aria-label*="Apply"], button[aria-label*="Apply"], ' +
+          'button.jobs-apply-button, a.jobs-apply-button, ' +
+          'button[aria-label*="Save"], button.jobs-save-button'
+        );
         if (actionKids.length >= 2) { actionRow = parent; break; }
         if (parent === root) { actionRow = n; break; }
         n = parent;
       }
-      if (!actionRow) actionRow = easyApplyBtn.parentElement;
+      if (!actionRow) actionRow = applyBtnAny.parentElement;
     }
     // Legacy selectors as last resort.
     if (!actionRow) {
