@@ -890,8 +890,8 @@
     const translateBtn = document.createElement("button");
     translateBtn.type = "button";
     translateBtn.className = "ljs-action-btn ljs-translate-btn";
-    translateBtn.innerHTML = '<span class="ljs-action-btn__icon">🌐</span><span class="ljs-action-btn__text">Translate</span>';
-    translateBtn.title = "Open this job description in Google Translate (auto-detect → English)";
+    translateBtn.innerHTML = '<span class="ljs-action-btn__icon">🌐</span>';
+    translateBtn.title = "Translate this job description to English";
     translateBtn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -905,6 +905,10 @@
       ].filter(Boolean);
       const text = parts.join("\n\n");
       if (!text) { toast("Nothing to translate — content not loaded yet", "err"); return; }
+      // Heuristic: if the description already looks English, confirm first.
+      if (looksEnglish(text) && !confirm("This job description appears to be in English already.\n\nTranslate anyway?")) {
+        return;
+      }
       openTranslateOverlay(text, meta, jobId);
     });
     saveGroup.appendChild(translateBtn);
@@ -1380,6 +1384,22 @@
 
   function escInline(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  // Heuristic: detect whether text is already English.
+  // Uses common English stopwords + diacritic check. If the text contains
+  // a high ratio of English function words and no heavy diacritics, treat
+  // it as English.
+  function looksEnglish(text) {
+    const t = String(text || "").toLowerCase();
+    if (t.length < 20) return false;
+    const englishStops = [" the ", " and ", " of ", " to ", " in ", " is ", " are ", " you ", " for ", " with ", " that ", " this ", " we ", " our ", " will ", " as ", " on ", " by "];
+    let hits = 0;
+    for (const w of englishStops) if (t.includes(w)) hits++;
+    // Diacritics typical of German/Polish/French/etc.
+    const diacritics = (t.match(/[äöüßąćęłńóśźżàâéèêëîïôûçñ]/g) || []).length;
+    const ratio = hits / englishStops.length;
+    return ratio >= 0.4 && diacritics < 3;
   }
 
   // Render multi-line text as <p> paragraphs (split on blank lines) with
