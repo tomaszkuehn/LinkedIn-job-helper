@@ -1127,52 +1127,47 @@
       // Class-based fallbacks (stable across LinkedIn builds).
       'button.jobs-apply-button, a.jobs-apply-button'
     );
-    // The "actionRow" is the innermost container that holds the Save button;
-    // we insert AFTER it (as its parent's next child) so the toolbar appears
-    // on its own line below the LinkedIn buttons.
-    let actionRow = null;
-    if (saveJobBtn) {
-      // Climb to the container whose direct child is the Save button (or a
-      // wrapper of Easy Apply + Save). We want the row that visually contains
-      // both buttons side by side.
-      let n = saveJobBtn;
-      while (n && n !== root) {
-        const parent = n.parentElement;
-        if (!parent) break;
-        // If parent contains both Save and Apply (or parent has 2+ button/link
-        // children), treat parent as the action row.
-        const actionKids = parent.querySelectorAll(
-          'button[aria-label*="Save"], button.jobs-save-button, ' +
-          'a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], ' +
-          'a[aria-label*="Apply"], button[aria-label*="Apply"], ' +
-          'button.jobs-apply-button, a.jobs-apply-button'
-        );
-        if (actionKids.length >= 2 || (actionKids.length >= 1 && applyBtnAny && parent.contains(applyBtnAny))) {
-          actionRow = parent;
-          break;
-        }
-        if (parent === root) { actionRow = n; break; }
-        n = parent;
+    // The "actionRow" is the OUTERMOST container that holds ONLY the action
+    // buttons (Easy Apply + Save, plus any sticky-buttons-container). We insert
+    // AFTER it (as its parent's next child) so the toolbar appears on its own
+    // line BELOW the entire action area — not inside it (which would cause the
+    // sticky-buttons-container to overlap the toolbar on listings with both
+    // top-card and sticky action rows, e.g. Easy Apply + Save).
+    // Heuristic: climb from the Save button up through ancestors, and pick the
+    // highest ancestor that (a) contains the Save button, (b) contains at least
+    // one action button, and (c) does NOT contain the job title (h1) or the
+    // description (#job-details) — that guards against climbing past the action
+    // area into the whole top-card.
+    function isActionOnlyContainer(el) {
+      if (!el || el === root) return false;
+      if (!el.contains(saveJobBtn) && (!applyBtnAny || !el.contains(applyBtnAny))) return false;
+      const actionKids = el.querySelectorAll(
+        'button[aria-label*="Save"], button.jobs-save-button, ' +
+        'a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], ' +
+        'a[aria-label*="Apply"], button[aria-label*="Apply"], ' +
+        'button.jobs-apply-button, a.jobs-apply-button'
+      );
+      if (actionKids.length < 1) return false;
+      // Reject containers that also hold the title or description — those are
+      // the top-card, not the action area.
+      if (el.querySelector('h1, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, #job-details, .jobs-description__content, .jobs-description')) {
+        return false;
       }
-      if (!actionRow) actionRow = saveJobBtn.parentElement;
+      return true;
     }
-    if (!actionRow && applyBtnAny) {
-      // Same logic climbing from Apply (Easy or external).
-      let n = applyBtnAny;
+    let actionRow = null;
+    const climbStart = saveJobBtn || applyBtnAny;
+    if (climbStart) {
+      let n = climbStart;
+      let best = null;
       while (n && n !== root) {
         const parent = n.parentElement;
         if (!parent) break;
-        const actionKids = parent.querySelectorAll(
-          'a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], ' +
-          'a[aria-label*="Apply"], button[aria-label*="Apply"], ' +
-          'button.jobs-apply-button, a.jobs-apply-button, ' +
-          'button[aria-label*="Save"], button.jobs-save-button'
-        );
-        if (actionKids.length >= 2) { actionRow = parent; break; }
-        if (parent === root) { actionRow = n; break; }
+        if (isActionOnlyContainer(parent)) best = parent;
+        if (parent === root) break;
         n = parent;
       }
-      if (!actionRow) actionRow = applyBtnAny.parentElement;
+      actionRow = best || climbStart.parentElement;
     }
     // Legacy selectors as last resort.
     if (!actionRow) {
