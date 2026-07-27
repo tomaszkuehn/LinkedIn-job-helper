@@ -429,10 +429,13 @@
       ".jobs-search__job-details, " +
       ".job-view-layout, " +
       ".jobs-job-view-layout, " +
+      ".jobs-job-view-content, " +
       ".jobs-search-results__detail-panel, " +
       ".scaffold-layout__detail, " +
       ".scaffold-layout__list-detail, " +
-      ".job-details-jobs-unified-top-card"
+      ".job-details-jobs-unified-top-card, " +
+      ".topcard, " +
+      ".jobs-s-main-content"
     );
     if (direct) return direct;
 
@@ -447,6 +450,8 @@
           ".job-details-jobs-unified-top-card__job-title, " +
           ".job-details-jobs-unified-top-card__company-name, " +
           ".jobs-unified-top-card__job-title, " +
+          ".topcard__title, " +
+          ".topcard__flavor, " +
           "h1"
         )) {
           return node;
@@ -457,8 +462,23 @@
       return desc.closest(
         ".jobs-description, .job-view-layout, .jobs-job-view-layout, " +
         ".jobs-search__job-details--container, .jobs-search__job-details--wrapper, " +
-        ".jobs-search__job-details, .scaffold-layout__detail, .scaffold-layout__list-detail"
+        ".jobs-search__job-details, .scaffold-layout__detail, .scaffold-layout__list-detail, " +
+        ".jobs-job-view-content"
       );
+    }
+
+    // Standalone /jobs/view/<id>/ pages: topcard layout (no #job-details id).
+    const topcard = document.querySelector(".topcard, .jobs-top-card");
+    if (topcard) {
+      // Walk up to a container that also has the description.
+      let node = topcard.parentElement;
+      while (node && node !== document.body) {
+        if (node.querySelector(".jobs-description, .description, .jobs-box__group")) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return topcard;
     }
 
     // Final fallback: unified top-card alone (better than nothing).
@@ -520,6 +540,8 @@
       ".jobs-unified-top-card__job-title h1, " +
       ".jobs-unified-top-card__job-title a, " +
       ".jobs-unified-top-card__job-title, " +
+      ".topcard__title, " +
+      ".topcard h1, " +
       "h1"
     );
     const companyEl = root.querySelector(
@@ -527,6 +549,8 @@
       ".job-details-jobs-unified-top-card__company-name, " +
       ".jobs-unified-top-card__company-name a, " +
       ".jobs-unified-top-card__company-name, " +
+      ".topcard__flavor, " +
+      ".topcard__company-name, " +
       ".artdeco-entity-lockup__subtitle"
     );
     const locEl = root.querySelector(
@@ -535,12 +559,19 @@
       ".job-details-jobs-unified-top-card__bullet, " +
       ".jobs-unified-top-card__bullet, " +
       ".job-details-jobs-unified-top-card__subtitle, " +
-      ".jobs-unified-top-card__subtitle"
+      ".jobs-unified-top-card__subtitle, " +
+      ".topcard__flavor--metadata, " +
+      ".topcard .posting-topcard__flavor--location, " +
+      ".topcard__location"
     );
     const descEl = root.querySelector("#job-details") ||
       root.querySelector(".jobs-description-content__text--stretch") ||
       root.querySelector(".jobs-description__content") ||
-      root.querySelector("#job-view-description");
+      root.querySelector(".jobs-description-content") ||
+      root.querySelector(".jobs-description") ||
+      root.querySelector("#job-view-description") ||
+      root.querySelector(".description") ||
+      root.querySelector(".jobs-box__group--description");
 
     // Workplace type: LinkedIn exposes it in .job-details-fit-level-preferences
     // via visually-hidden text "workplace type is Remote" / "workplace type is Hybrid" etc.
@@ -807,9 +838,10 @@
     const topCardReady = root.querySelector(
       ".job-details-jobs-unified-top-card, .jobs-unified-top-card, " +
       ".job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, " +
-      "h1.t-24, h1.t-16"
+      ".topcard__title, .topcard h1, " +
+      "h1.t-24, h1.t-16, h1.topcard__title"
     );
-    const descReady = root.querySelector("#job-details, .jobs-description__content, #job-view-description");
+    const descReady = root.querySelector("#job-details, .jobs-description__content, #job-view-description, .jobs-description, .description, .jobs-box__group");
     if (!topCardReady && !descReady) {
       // Panel container exists but job content hasn't loaded yet — skip this
       // cycle without setting injectedForJobId, so the MutationObserver can
