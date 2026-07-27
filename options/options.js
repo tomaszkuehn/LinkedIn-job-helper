@@ -97,6 +97,7 @@ function renderSaved() {
   tbody.innerHTML = "";
   for (const job of filtered) {
     const tr = document.createElement("tr");
+    if (job.status === "german") tr.classList.add("row-status-german");
     tr.innerHTML = `
       <td><a href="${escAttr(job.url || "")}" target="_blank" rel="noopener">${escHtml(job.title || job.jobId)}</a></td>
       <td>${escHtml(job.company || "")}</td>
@@ -186,6 +187,7 @@ function renderSeen() {
     const repost = (s.jobIds || []).length > 1;
     const ignored = s.status === "ignored";
     const tr = document.createElement("tr");
+    if (s.status === "german") tr.classList.add("row-status-german");
     tr.innerHTML = `
       <td>${escHtml(s.title || "(untitled)")}</td>
       <td>${escHtml(s.company || "")}</td>

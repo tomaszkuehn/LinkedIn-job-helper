@@ -76,6 +76,7 @@ h1 { font-size: 15px; margin: 0; }
   border-bottom: 1px solid #f0f0f0;
 }
 .row--seen { background: #fffbf2; }
+.row--status-german { background: #fff8cc; }
 .row__head { display: flex; flex-direction: column; }
 .row__title {
   font-weight: 600;

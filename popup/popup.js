@@ -65,6 +65,8 @@ function render() {
 function renderSaved(list) {
   for (const job of list) {
     const node = rowTpl.content.cloneNode(true);
+    const li = node.querySelector(".row");
+    if (job.status === "german") li.classList.add("row--status-german");
     const title = node.querySelector(".row__title");
     title.textContent = job.title || job.jobId;
     title.href = job.url || `https://www.linkedin.com/jobs/view/${job.jobId}/`;
@@ -108,6 +110,8 @@ function renderSaved(list) {
 function renderSeen(list) {
   for (const s of list) {
     const node = seenRowTpl.content.cloneNode(true);
+    const li = node.querySelector(".row");
+    if (s.status === "german") li.classList.add("row--status-german");
     node.querySelector(".row__title").textContent = s.title || "(untitled)";
     node.querySelector(".row__company").textContent = s.company || "";
     const repost = (s.jobIds || []).length > 1;
