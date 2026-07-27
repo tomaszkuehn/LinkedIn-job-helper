@@ -243,6 +243,14 @@
       .filter(Boolean);
   }
 
+  // Normalize regional diacritics to their Latin equivalents (NFD + strip
+  // combining marks). Covers Polish (ąćęłńóśźż), German (äöüß), Nordic (åæø),
+  // Czech/Slovak (ěščřžýáíéůúňťď), etc. Used for matching preferred cities
+  // against job locations so "Poznań" matches "Poznan" and vice-versa.
+  function normalizeDiacritics(s) {
+    return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
   // Returns { verdict, reason, distanceKm }
   // preferredCities: string (comma-separated) or array
   // jobCoords: [lat, lon] | null  — geocoded job location (only if precise)
@@ -254,14 +262,14 @@
     if (!workplaceType) {
       return { verdict: "neutral", reason: "Workplace type unknown", distanceKm: null };
     }
-    const cities = Array.isArray(preferredCities)
+    const cities = (Array.isArray(preferredCities)
       ? preferredCities.map(c => String(c).trim().toLowerCase()).filter(Boolean)
-      : parseCityList(preferredCities);
+      : parseCityList(preferredCities)).map(normalizeDiacritics);
     if (cities.length === 0) {
       return { verdict: "neutral", reason: workplaceType + " — no preferred cities set in Options", distanceKm: null };
     }
     const where = city ? city : "unknown city";
-    const cityLower = String(city || "").trim().toLowerCase();
+    const cityLower = normalizeDiacritics(String(city || "").trim().toLowerCase());
     // Match if any preferred city appears as a fragment of the detected city
     // (or vice-versa), so "Poznan" matches "Poznan Metropolitan Area" etc.
     const matches = cityLower && cities.some(c => cityLower.includes(c) || c.includes(cityLower));
