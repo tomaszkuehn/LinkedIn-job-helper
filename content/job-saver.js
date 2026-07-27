@@ -775,12 +775,6 @@
     }
 
     const _descText = descEl ? descEl.innerText : "";
-    // Run analyzeLocation as fallback for workplace type (if fit-level buttons didn't yield it)
-    // and to extract city.
-    const _wa = analyzeLocation(location, _descText);
-    if (!workplaceType) workplaceType = _wa.workplaceType;
-    const city = _wa.city;
-
     // Salary: LinkedIn sometimes shows it in the top-card metadata area (a tvm__text
     // with currency symbols) or in the description text. We try both paths.
     const salary = scrapeSalary(root, _descText);
@@ -911,6 +905,13 @@
         console.log("[LJS] used JSON-LD fallback for scraping");
       }
     }
+
+    // Run analyzeLocation AFTER all location fallbacks have run, so city is
+    // extracted from the final locationStr (Fallback 2b/JSON-LD may set it
+    // after the primary selectors missed on obfuscated layouts).
+    const _wa = analyzeLocation(locationStr, _descText);
+    if (!workplaceType) workplaceType = _wa.workplaceType;
+    const city = _wa.city;
 
     return {
       jobId: finalJobId,
