@@ -389,6 +389,15 @@ const previewModal = document.getElementById("preview-modal");
 const previewContent = document.getElementById("preview-content");
 const previewClose = document.getElementById("preview-close");
 
+const LANG_NAMES_OPT = {
+  de: "German", en: "English", pl: "Polish", fr: "French", es: "Spanish",
+  it: "Italian", nl: "Dutch", pt: "Portuguese", ru: "Russian", tr: "Turkish",
+  uk: "Ukrainian", ro: "Romanian", cs: "Czech", sv: "Swedish", da: "Danish",
+  fi: "Finnish", no: "Norwegian", ar: "Arabic", zh: "Chinese", ja: "Japanese",
+  ko: "Korean", hi: "Hindi", hu: "Hungarian", el: "Greek", bg: "Bulgarian",
+};
+function langNameOpt(code) { return LANG_NAMES_OPT[code] || code || "auto"; }
+
 function showPreview(job, kind) {
   const status = job.status || "";
   const statusLabel = status ? STATUS_LABELS_FULL[status] || status : "—";
@@ -419,6 +428,7 @@ function showPreview(job, kind) {
       <button id="pv-copy-text" class="ghost">Copy as plain text</button>
     </div>
     <div class="pv-desc">${desc ? desc : (descText ? "<pre style='white-space:pre-wrap;font:inherit;margin:0'>" + escHtml(descText) + "</pre>" : "<p class='pv-empty'>No description stored for this job.</p>")}</div>
+    ${job.translationEn ? '<div class="pv-translation-note">🌐 Translated from ' + escHtml(langNameOpt(job.sourceLang)) + ' (saved ' + (job.translatedAt ? new Date(job.translatedAt).toLocaleDateString("en-US") : "") + ')</div><div class="pv-translation">' + escHtml(job.translationEn) + '</div>' : ""}
   `;
 
   const copyBtn = document.getElementById("pv-copy");

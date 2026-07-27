@@ -164,6 +164,63 @@ async function getUsage() {
   });
 }
 
+// ---------- Translation (unofficial Google Translate endpoint) ----------
+// Uses translate.googleapis.com/translate_a/single?client=gtx — the same API
+// that the public Google Translate website uses. No API key, no daily limit.
+// Returns JSON array; we extract translated text and detected source language.
+//
+// Google limits ~5000 chars per request, so we chunk by paragraphs.
+async function translateChunk(text, targetLang) {
+  const url = "https://translate.googleapis.com/translate_a/single?client=gtx"
+    + "&sl=auto&tl=" + encodeURIComponent(targetLang)
+    + "&dt=t&q=" + encodeURIComponent(text);
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!res.ok) throw new Error("Translate HTTP " + res.status);
+  const data = await res.json();
+  // data[0] = array of [translatedChunk, originalChunk, ...] segments
+  // data[2] = detected source language code (e.g. "de")
+  if (!Array.isArray(data) || !Array.isArray(data[0])) {
+    throw new Error("Translate: unexpected response");
+  }
+  let translated = "";
+  for (const seg of data[0]) {
+    if (Array.isArray(seg) && typeof seg[0] === "string") translated += seg[0];
+  }
+  const sourceLang = (typeof data[2] === "string") ? data[2] : "";
+  return { text: translated, sourceLang };
+}
+
+async function translateText(text, targetLang) {
+  const MAX_CHUNK = 4500; // Google's per-request limit is ~5000 chars; keep margin.
+  if (text.length <= MAX_CHUNK) return translateChunk(text, targetLang);
+  // Split by paragraphs, accumulate up to MAX_CHUNK.
+  const paragraphs = text.split(/\n+/);
+  const chunks = [];
+  let cur = "";
+  for (const p of paragraphs) {
+    if ((cur + "\n" + p).length > MAX_CHUNK) {
+      if (cur) chunks.push(cur);
+      // If a single paragraph exceeds the limit, hard-split it.
+      if (p.length > MAX_CHUNK) {
+        for (let i = 0; i < p.length; i += MAX_CHUNK) {
+          chunks.push(p.slice(i, i + MAX_CHUNK));
+        }
+        cur = "";
+      } else {
+        cur = p;
+      }
+    } else {
+      cur = cur ? cur + "\n" + p : p;
+    }
+  }
+  if (cur) chunks.push(cur);
+  const results = await Promise.all(chunks.map(c => translateChunk(c, targetLang)));
+  return {
+    text: results.map(r => r.text).join("\n"),
+    sourceLang: results[0] ? results[0].sourceLang : "",
+  };
+}
+
 // Nasłuchuj zmian w storage — content script i popup/options piszą do tych samych kluczy.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
@@ -214,6 +271,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const hit = arr[0];
         sendResponse({ ok: true, coords: [parseFloat(hit.lat), parseFloat(hit.lon)], label: hit.display_name || q });
       })
+      .catch(e => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+  if (msg.type === "translate") {
+    const text = String(msg.text || "");
+    const target = String(msg.targetLang || "en");
+    if (!text) { sendResponse({ ok: true, translatedText: "", sourceLang: "" }); return false; }
+    translateText(text, target)
+      .then(res => sendResponse({ ok: true, translatedText: res.text, sourceLang: res.sourceLang }))
       .catch(e => sendResponse({ ok: false, error: String(e) }));
     return true;
   }

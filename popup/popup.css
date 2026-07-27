@@ -107,6 +107,26 @@ h1 { font-size: 15px; margin: 0; }
   white-space: pre-wrap;
   margin: 4px 0;
 }
+.row__translation { margin: 4px 0; }
+.row__translation-note {
+  font: 600 10px/1 "Segoe UI", Arial, sans-serif;
+  color: #1a73e8;
+  margin-bottom: 2px;
+}
+.row__translation-text {
+  color: #1a4731;
+  font-size: 11px;
+  max-height: 3.6em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
 .row__actions { display: flex; gap: 6px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
 .row__actions select {
   padding: 4px 6px;

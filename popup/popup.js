@@ -74,6 +74,14 @@ function renderSaved(list) {
     node.querySelector(".row__salary").textContent = job.salary ? "💰 " + job.salary : "";
     node.querySelector(".row__date").textContent = job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : "";
     node.querySelector(".row__desc").textContent = (job.descriptionText || "").slice(0, 300) + ((job.descriptionText || "").length > 300 ? "…" : "");
+    const translationEl = node.querySelector(".row__translation");
+    if (job.translationEn) {
+      const langName = LANG_NAMES[job.sourceLang] || job.sourceLang || "auto";
+      translationEl.innerHTML = '<div class="row__translation-note">🌐 Translated from ' + escInline(langName) + '</div><div class="row__translation-text">' + escInline(job.translationEn.slice(0, 400) + (job.translationEn.length > 400 ? "…" : "")) + '</div>';
+      translationEl.style.display = "";
+    } else {
+      translationEl.style.display = "none";
+    }
     const statusSel = node.querySelector(".row__status");
     statusSel.value = job.status || "";
     statusSel.addEventListener("change", async () => {
@@ -110,6 +118,14 @@ function renderSeen(list) {
     node.querySelector(".row__last").textContent = "last: " + (s.lastSeenAt ? new Date(s.lastSeenAt).toLocaleDateString("en-US") : "?");
     node.querySelector(".row__ids").textContent = "jobIds: " + (s.jobIds || []).join(", ");
     node.querySelector(".row__desc").textContent = (s.descriptionText || "").slice(0, 200) + ((s.descriptionText || "").length > 200 ? "…" : "");
+    const translationEl = node.querySelector(".row__translation");
+    if (s.translationEn) {
+      const langName = LANG_NAMES[s.sourceLang] || s.sourceLang || "auto";
+      translationEl.innerHTML = '<div class="row__translation-note">🌐 Translated from ' + escInline(langName) + '</div><div class="row__translation-text">' + escInline(s.translationEn.slice(0, 400) + (s.translationEn.length > 400 ? "…" : "")) + '</div>';
+      translationEl.style.display = "";
+    } else {
+      translationEl.style.display = "none";
+    }
     const statusSel = node.querySelector(".row__status");
     statusSel.value = s.status || "";
     statusSel.addEventListener("change", async () => {
@@ -170,6 +186,17 @@ function formatWorkplace(wp, city) {
   if (!wp && !city) return "";
   const wpLabel = wp ? (WP_EMOJI[wp] || "") + " " + (WP_LABELS[wp] || wp) : "";
   return [wpLabel, city ? "📍 " + city : ""].filter(Boolean).join("  ");
+}
+
+const LANG_NAMES = {
+  de: "German", en: "English", pl: "Polish", fr: "French", es: "Spanish",
+  it: "Italian", nl: "Dutch", pt: "Portuguese", ru: "Russian", tr: "Turkish",
+  uk: "Ukrainian", ro: "Romanian", cs: "Czech", sv: "Swedish", da: "Danish",
+  fi: "Finnish", no: "Norwegian", ar: "Arabic", zh: "Chinese", ja: "Japanese",
+  ko: "Korean", hi: "Hindi", hu: "Hungarian", el: "Greek", bg: "Bulgarian",
+};
+function escInline(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
 // Inline confirm modal — replaces window.confirm() which hangs in MV3 popups.

@@ -885,6 +885,30 @@
     });
 
     saveGroup.appendChild(btn);
+
+    // --- Translate button (opens Google Translate with the job description) ---
+    const translateBtn = document.createElement("button");
+    translateBtn.type = "button";
+    translateBtn.className = "ljs-action-btn ljs-translate-btn";
+    translateBtn.innerHTML = '<span class="ljs-action-btn__icon">🌐</span><span class="ljs-action-btn__text">Translate</span>';
+    translateBtn.title = "Open this job description in Google Translate (auto-detect → English)";
+    translateBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!checkCtx()) { toast("Extension reloaded — refresh page", "err"); return; }
+      const meta = scrapeFromDetail(root, jobId);
+      const parts = [
+        meta.title ? meta.title : "",
+        meta.company ? meta.company : "",
+        meta.location ? meta.location : "",
+        meta.descriptionText ? meta.descriptionText : "",
+      ].filter(Boolean);
+      const text = parts.join("\n\n");
+      if (!text) { toast("Nothing to translate — content not loaded yet", "err"); return; }
+      openTranslateOverlay(text, meta, jobId);
+    });
+    saveGroup.appendChild(translateBtn);
+
     row.appendChild(saveGroup);
 
     // --- Separator ---
@@ -1140,6 +1164,222 @@
       banner.innerHTML = '<span class="ljs-pref-banner__icon">' + icon + '</span><span class="ljs-pref-banner__text">' + ev.reason + '</span>';
       slot.appendChild(banner);
     }).catch((e) => console.warn("[LJS] preference banner error", e));
+  }
+
+  // ---------- Translate overlay (inline translation panel) ----------
+  const LANG_NAMES = {
+    de: "German", en: "English", pl: "Polish", fr: "French", es: "Spanish",
+    it: "Italian", nl: "Dutch", pt: "Portuguese", ru: "Russian", tr: "Turkish",
+    uk: "Ukrainian", ro: "Romanian", cs: "Czech", sv: "Swedish", da: "Danish",
+    fi: "Finnish", no: "Norwegian", ar: "Arabic", zh: "Chinese", ja: "Japanese",
+    ko: "Korean", hi: "Hindi", hu: "Hungarian", el: "Greek", bg: "Bulgarian",
+    sk: "Slovak", hr: "Croatian", sr: "Serbian", lt: "Lithuanian", lv: "Latvian",
+    et: "Estonian", sl: "Slovenian", is: "Icelandic", he: "Hebrew",
+  };
+  function langName(code) {
+    if (!code) return "auto-detected";
+    return LANG_NAMES[code] || code;
+  }
+
+  function translateViaBackground(text, targetLang) {
+    return new Promise((resolve, reject) => {
+      if (!checkCtx()) return reject(new Error("Extension context invalidated"));
+      try {
+        chrome.runtime.sendMessage(
+          { type: "translate", text, targetLang },
+          (res) => {
+            if (!checkCtx()) return reject(new Error("Extension context invalidated"));
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!res || !res.ok) return reject(new Error((res && res.error) || "Translate failed"));
+            resolve({ translatedText: res.translatedText, sourceLang: res.sourceLang });
+          }
+        );
+      } catch (e) { reject(e); }
+    });
+  }
+
+  function closeTranslateOverlay() {
+    const ov = document.getElementById("ljs-translate-overlay");
+    if (ov) ov.remove();
+  }
+
+  async function saveTranslation(jobId, translatedText, sourceLang) {
+    // Update saved job (if present) with translation + source language.
+    const jobs = await storageGet(KEY_JOBS);
+    let changedJobs = false;
+    if (jobs[jobId]) {
+      jobs[jobId].translationEn = translatedText;
+      jobs[jobId].sourceLang = sourceLang || "";
+      jobs[jobId].translatedAt = new Date().toISOString();
+      changedJobs = true;
+    }
+    if (changedJobs) await storageSet(KEY_JOBS, jobs);
+
+    // Also store translation on the seen entry (match by cardFingerprint).
+    try {
+      // Read meta fresh to compute fingerprint.
+      const root = findDetailRoot();
+      if (root) {
+        const meta = scrapeFromDetail(root, jobId);
+        if (meta.title && meta.company) {
+          const cfp = await cardFingerprint(meta.title, meta.company);
+          const seen = await storageGet(KEY_SEEN);
+          const matches = Object.values(seen).filter(e => e.cardFingerprint === cfp);
+          let changedSeen = false;
+          for (const e of matches) {
+            e.translationEn = translatedText;
+            e.sourceLang = sourceLang || "";
+            e.translatedAt = new Date().toISOString();
+            seen[e.fingerprint] = e;
+            changedSeen = true;
+          }
+          if (changedSeen) await storageSet(KEY_SEEN, seen);
+        }
+      }
+    } catch (e) { console.warn("[LJS] saveTranslation seen update failed", e); }
+  }
+
+  async function openTranslateOverlay(text, meta, jobId) {
+    closeTranslateOverlay();
+    const overlay = document.createElement("div");
+    overlay.id = "ljs-translate-overlay";
+    overlay.className = "ljs-overlay ljs-translate-overlay";
+    overlay.innerHTML = `
+      <div class="ljs-overlay__backdrop"></div>
+      <div class="ljs-translate-card">
+        <button class="ljs-overlay__close" title="Close (Esc)">✕</button>
+        <div class="ljs-translate-header">
+          <h2>🌐 Translate job to English</h2>
+          <span class="ljs-translate-meta">${escInline(meta.title)} · ${escInline(meta.company)}</span>
+        </div>
+        <div class="ljs-translate-status">
+          <span class="ljs-translate-status__spinner"></span>
+          <span class="ljs-translate-status__text">Translating…</span>
+        </div>
+        <div class="ljs-translate-body">
+          <div class="ljs-translate-pane">
+            <div class="ljs-translate-pane__title">Original <span class="ljs-translate-lang"></span></div>
+            <div class="ljs-translate-pane__text ljs-translate-original"></div>
+          </div>
+          <div class="ljs-translate-pane">
+            <div class="ljs-translate-pane__title">English</div>
+            <div class="ljs-translate-pane__text ljs-translate-result"></div>
+          </div>
+        </div>
+        <div class="ljs-translate-actions">
+          <button class="ljs-translate-save" disabled>💾 Save translation with job</button>
+          <button class="ljs-translate-copy" disabled>📋 Copy translation</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => closeTranslateOverlay();
+    overlay.querySelector(".ljs-overlay__close").addEventListener("click", close);
+    overlay.querySelector(".ljs-overlay__backdrop").addEventListener("click", close);
+    const onKey = (e) => { if (e.key === "Escape") { close(); document.removeEventListener("keydown", onKey); } };
+    document.addEventListener("keydown", onKey);
+
+    const statusEl = overlay.querySelector(".ljs-translate-status");
+    const statusText = overlay.querySelector(".ljs-translate-status__text");
+    const langEl = overlay.querySelector(".ljs-translate-lang");
+    const resultEl = overlay.querySelector(".ljs-translate-result");
+    const originalEl = overlay.querySelector(".ljs-translate-original");
+    const saveBtn = overlay.querySelector(".ljs-translate-save");
+    const copyBtn = overlay.querySelector(".ljs-translate-copy");
+
+    // Show original (preserve line breaks via <pre>).
+    originalEl.innerHTML = "<pre>" + escInline(text) + "</pre>";
+
+    // Pre-fill from stored translation if present.
+    try {
+      const stored = await getStoredTranslation(jobId, meta);
+      if (stored && stored.translationEn) {
+        resultEl.innerHTML = "<pre>" + escInline(stored.translationEn) + "</pre>";
+        langEl.textContent = "· " + langName(stored.sourceLang);
+        statusEl.style.display = "none";
+        saveBtn.disabled = false;
+        saveBtn.textContent = "✓ Translation saved";
+        copyBtn.disabled = false;
+        copyBtn.textContent = "📋 Copy translation";
+        // Wire save to re-persist (overwrite timestamp).
+        saveBtn.onclick = async () => {
+          saveBtn.disabled = true;
+          await saveTranslation(jobId, stored.translationEn, stored.sourceLang);
+          saveBtn.disabled = false;
+          saveBtn.textContent = "✓ Translation saved";
+          toast("Translation saved with job", "ok");
+        };
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(stored.translationEn).then(() => {
+            const o = copyBtn.textContent; copyBtn.textContent = "✓ Copied";
+            setTimeout(() => (copyBtn.textContent = o), 1500);
+          });
+        };
+        return;
+      }
+    } catch (e) { /* ignore — proceed to fresh translation */ }
+
+    // Fresh translation via background SW.
+    let translatedText = "";
+    let sourceLang = "";
+    try {
+      const res = await translateViaBackground(text, "en");
+      translatedText = res.translatedText;
+      sourceLang = res.sourceLang;
+      resultEl.innerHTML = "<pre>" + escInline(translatedText) + "</pre>";
+      langEl.textContent = "· " + langName(sourceLang);
+      statusEl.style.display = "none";
+      saveBtn.disabled = false;
+      copyBtn.disabled = false;
+      toast("Translated from " + langName(sourceLang), "ok");
+    } catch (err) {
+      console.error("[LJS] translate error", err);
+      statusText.textContent = "Translation failed: " + (err.message || err);
+      statusEl.classList.add("ljs-translate-status--err");
+      return;
+    }
+
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true;
+      const orig = saveBtn.textContent;
+      saveBtn.textContent = "Saving…";
+      try {
+        await saveTranslation(jobId, translatedText, sourceLang);
+        saveBtn.textContent = "✓ Translation saved";
+        toast("Translation saved with job", "ok");
+      } catch (e) {
+        console.error("[LJS] save translation error", e);
+        saveBtn.textContent = orig;
+        saveBtn.disabled = false;
+        toast("Save error: " + (e.message || e), "err");
+      }
+    });
+
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(translatedText).then(() => {
+        const o = copyBtn.textContent; copyBtn.textContent = "✓ Copied";
+        setTimeout(() => (copyBtn.textContent = o), 1500);
+      });
+    });
+  }
+
+  async function getStoredTranslation(jobId, meta) {
+    const jobs = await storageGet(KEY_JOBS);
+    if (jobs[jobId] && jobs[jobId].translationEn) {
+      return { translationEn: jobs[jobId].translationEn, sourceLang: jobs[jobId].sourceLang };
+    }
+    // Try seen by cardFingerprint.
+    const cfp = await cardFingerprint(meta.title, meta.company);
+    const matches = await getAllSeenByCardFp(cfp);
+    for (const e of matches) {
+      if (e.translationEn) return { translationEn: e.translationEn, sourceLang: e.sourceLang };
+    }
+    return null;
+  }
+
+  function escInline(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
 
   // ---------- Options overlay (full options page in an iframe) ----------
