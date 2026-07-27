@@ -773,6 +773,38 @@
     let descHtml = descEl ? descEl.innerHTML : "";
     let descStr = _descText;
 
+    // Cross-row contamination guard: on SPA transitions (collections/recommended)
+    // LinkedIn updates the apply button's data-job-id BEFORE the top-card
+    // re-renders, so for a brief window the apply button references the NEW job
+    // while the title link / company / location / description still show the
+    // PREVIOUS job. Without this guard we'd persist a job with the new jobId but
+    // the old company/title — and that company would then appear next to a
+    // different row in Options. If the top-card's title link references a
+    // different jobId than the apply button, treat the whole detail panel as
+    // stale and return empty meta so callers (handleSave / recordSeen) bail out.
+    const _titleLink = titleEl
+      ? (titleEl.tagName === "A" ? titleEl : titleEl.querySelector('a[href*="/jobs/view/"]'))
+      : null;
+    if (_titleLink && finalJobId) {
+      const m = (_titleLink.getAttribute("href") || "").match(/\/jobs\/view\/(\d+)/);
+      if (m && String(m[1]) !== String(finalJobId)) {
+        console.warn("[LJS] top-card stale — title link jobId", m[1], "≠ apply/URL jobId", finalJobId,
+          "(LinkedIn SPA mid-transition). Returning empty meta to avoid cross-row contamination.");
+        return {
+          jobId: finalJobId,
+          title: "",
+          company: "",
+          location: "",
+          workplaceType: "",
+          city: "",
+          salary: "",
+          url: "https://www.linkedin.com/jobs/view/" + finalJobId + "/",
+          descriptionHtml: "",
+          descriptionText: "",
+        };
+      }
+    }
+
     // Fallback 1: "About the job" heading heuristic.
     // On layouts with obfuscated class names, find the H2 with text
     // "About the job" and grab its sibling/parent container as the description.
