@@ -481,27 +481,42 @@
       return topcard;
     }
 
-    // Heuristic fallback: "About the job" heading.
+    // Heuristic fallback: "About the job" heading OR Easy Apply button.
     // LinkedIn sometimes ships obfuscated class names (hashes that change
-    // between builds), making CSS selectors unreliable. The one stable
-    // signal on /jobs/view/<id>/ pages is an H2 with text "About the job".
-    // We locate that heading and use its parent chain as the detail root.
+    // between builds), making CSS selectors unreliable. Stable signals:
+    //   - an H2 with text "About the job" (description section)
+    //   - a link/button with aria-label "Easy Apply to this job" / "Save the job"
+    // We prefer the Easy Apply container (the job header) as the root so the
+    // toolbar is injected in the header, next to LinkedIn's own buttons —
+    // not down in the description section.
+    const easyApply = document.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
+    if (easyApply) {
+      // Climb to the top-card container that also holds the title + company.
+      // The Easy Apply button sits inside the action row; the header is its
+      // nearest ancestor that also contains the job title paragraph.
+      let node = easyApply;
+      let header = null;
+      while (node && node !== document.body) {
+        // The job title on obfuscated layouts is a <p> whose text matches document.title.
+        // Climb until we find a container with multiple <p> children (title + location).
+        const ps = node.querySelectorAll("p");
+        if (ps.length >= 2) { header = node; break; }
+        node = node.parentElement;
+      }
+      if (header) return header;
+      // Fallback: the closest section-like ancestor.
+      return easyApply.closest("section, article, main") || easyApply.parentElement || document.body;
+    }
+
     const aboutHeading = findAboutJobHeading();
     if (aboutHeading) {
-      // Walk up until we find a container that also includes the title
-      // (we use document.title as a fallback for the title) and the
-      // application section. Practically, the H2's nearest section ancestor
-      // holds the description; the job header is a sibling above.
       let node = aboutHeading.parentElement;
       while (node && node !== document.body) {
-        // Heuristic: a sensible root contains at least the description
-        // (the About the job heading) and has > 1 child section.
         if (node.children.length >= 2) {
           return node;
         }
         node = node.parentElement;
       }
-      // Last resort: use the heading's parent.
       return aboutHeading.parentElement || document.body;
     }
 
@@ -776,6 +791,38 @@
       if (!companyStr && parts.length >= 2) companyStr = parts[parts.length - 1].trim();
     }
 
+    // Fallback 2b: obfuscated layout — scrape from header structure by content.
+    // Title: the <p> whose text matches document.title's first segment.
+    // Company: the <a href*="linkedin.com/company/"> text.
+    // Location: first <span> in the paragraph containing "·" (metadata row).
+    if (!titleStr || !companyStr || !locationStr) {
+      const docTitle = (document.title || "").replace(/\s*\|\s*LinkedIn\s*$/i, "");
+      const titleSeg = docTitle.split(/\s*\|\s*/)[0]?.trim() || "";
+      if (!titleStr && titleSeg) {
+        // Find a <p> whose text matches the title segment.
+        const ps = root.querySelectorAll("p");
+        for (const p of ps) {
+          if ((p.textContent || "").trim() === titleSeg) { titleStr = titleSeg; break; }
+        }
+      }
+      if (!companyStr) {
+        const companyLink = root.querySelector('a[href*="linkedin.com/company/"][href*="/life/"], a[href*="linkedin.com/company/"]');
+        if (companyLink) companyStr = (companyLink.textContent || "").trim();
+      }
+      if (!locationStr) {
+        // Metadata paragraph: "Germany · Reposted 6 days ago · Over 100 applicants"
+        const ps = root.querySelectorAll("p");
+        for (const p of ps) {
+          const t = (p.textContent || "").trim();
+          if (t.includes("·") && /repost|applicants|ago|promoted/i.test(t)) {
+            const firstSpan = p.querySelector("span");
+            if (firstSpan) locationStr = (firstSpan.textContent || "").trim();
+            break;
+          }
+        }
+      }
+    }
+
     // Fallback 3: JSON-LD JobPosting (last resort).
     if (!titleStr && !companyStr && !descStr) {
       const ld = scrapeFromJobPostingLd();
@@ -1006,6 +1053,10 @@
     // Insert toolbar AFTER LinkedIn's action row (Easy Apply / Save buttons),
     // as a separate block. We do not append into LinkedIn's button container, so the
     // original layout is preserved.
+    // Strategy: locate the "Easy Apply" / "Save" buttons by aria-label (stable
+    // across obfuscated class name revisions) and use their container as anchor.
+    const easyApplyBtn = root.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
+    const saveJobBtn = root.querySelector('button[aria-label="Save the job"], button[aria-label*="Save"]');
     const actionRow =
       root.querySelector(".mt4 .display-flex") ||
       root.querySelector(".job-details-jobs-unified-top-card__sticky-buttons-container") ||
@@ -1013,6 +1064,9 @@
       root.querySelector(".jobs-unified-top-card__content") ||
       root.querySelector(".jobs-apply-button--preview-banner") ||
       root.querySelector(".job-details-jobs-unified-top-card__sticky-action-buttons") ||
+      // Obfuscated layout: climb from Easy Apply / Save buttons to their container.
+      (easyApplyBtn ? easyApplyBtn.closest('div') : null) ||
+      (saveJobBtn ? saveJobBtn.closest('div') : null) ||
       (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex, .jobs-unified-top-card__actions, .job-details-jobs-unified-top-card__sticky-action-buttons") : null);
     const anchor = actionRow && actionRow.parentElement ? actionRow.parentElement : root;
 
@@ -1237,6 +1291,8 @@
     } else if (topCard) {
       root.appendChild(toolbar);
     } else {
+      // Obfuscated layout: insert right after the action row's container,
+      // i.e. as the next child of the header. Falls back to root append.
       root.appendChild(toolbar);
     }
     console.log("[LJS] toolbar appended — in DOM:", !!document.getElementById(TOOLBAR_ID), "actionRow:", !!actionRow, "topCard:", !!topCard, "anchor:", anchor.className.slice(0,60));
