@@ -481,17 +481,58 @@
       return topcard;
     }
 
+    // Heuristic fallback: "About the job" heading.
+    // LinkedIn sometimes ships obfuscated class names (hashes that change
+    // between builds), making CSS selectors unreliable. The one stable
+    // signal on /jobs/view/<id>/ pages is an H2 with text "About the job".
+    // We locate that heading and use its parent chain as the detail root.
+    const aboutHeading = findAboutJobHeading();
+    if (aboutHeading) {
+      // Walk up until we find a container that also includes the title
+      // (we use document.title as a fallback for the title) and the
+      // application section. Practically, the H2's nearest section ancestor
+      // holds the description; the job header is a sibling above.
+      let node = aboutHeading.parentElement;
+      while (node && node !== document.body) {
+        // Heuristic: a sensible root contains at least the description
+        // (the About the job heading) and has > 1 child section.
+        if (node.children.length >= 2) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      // Last resort: use the heading's parent.
+      return aboutHeading.parentElement || document.body;
+    }
+
     // Heuristic fallback: JSON-LD JobPosting schema.
-    // LinkedIn always embeds a <script type="application/ld+json"> with
-    // @type=JobPosting on /jobs/view/<id>/ pages. Use it as a last-resort
-    // signal that this is a job detail page even if CSS class names change.
     if (hasJobPostingLd()) {
-      // Use <main> or <article> if present, else <body>.
       return document.querySelector("main") || document.querySelector("article") || document.body;
     }
 
     // Final fallback: unified top-card alone (better than nothing).
     return document.querySelector(".jobs-unified-top-card") || null;
+  }
+
+  // Find an H2 (or any heading) whose text content is "About the job".
+  // LinkedIn localizes this but English locale is most common; also try
+  // a few other languages (German, Polish, French) as a best effort.
+  const ABOUT_JOB_TEXTS = [
+    "about the job",
+    "über den job", "über die stelle", "stellenbeschreibung",
+    "o stanowisku", "o pracy",
+    "à propos du poste", "à propos de l'offre",
+    "sulla posizione", "informazioni sul lavoro",
+    "sobre el puesto", "sobre el trabajo",
+    "over de functie", "over de baan",
+  ];
+  function findAboutJobHeading() {
+    const headings = document.querySelectorAll("h1, h2, h3, h4");
+    for (const h of headings) {
+      const t = (h.textContent || "").trim().toLowerCase();
+      if (ABOUT_JOB_TEXTS.includes(t)) return h;
+    }
+    return null;
   }
 
   // Detect a JSON-LD JobPosting script in the document.
@@ -706,7 +747,36 @@
     let descHtml = descEl ? descEl.innerHTML : "";
     let descStr = _descText;
 
-    // Fallback: if CSS scraping yielded nothing, try JSON-LD JobPosting.
+    // Fallback 1: "About the job" heading heuristic.
+    // On layouts with obfuscated class names, find the H2 with text
+    // "About the job" and grab its sibling/parent container as the description.
+    if (!descStr) {
+      const aboutH = findAboutJobHeading();
+      if (aboutH) {
+        // The description is typically the next sibling element after the heading,
+        // or the heading's parent's next sibling.
+        let descContainer = aboutH.nextElementSibling;
+        if (!descContainer && aboutH.parentElement) {
+          descContainer = aboutH.parentElement.nextElementSibling;
+        }
+        if (descContainer) {
+          descHtml = descContainer.innerHTML;
+          descStr = descContainer.innerText;
+        }
+      }
+    }
+
+    // Fallback 2: title from <title> tag ("Lead Software Engineer (m/w/d) | Career Factory GmbH | LinkedIn")
+    if (!titleStr) {
+      const docTitle = document.title || "";
+      // Strip " | LinkedIn" suffix and company (after " | ").
+      const withoutSuffix = docTitle.replace(/\s*\|\s*LinkedIn\s*$/i, "");
+      const parts = withoutSuffix.split(/\s*\|\s*/);
+      if (parts.length >= 1) titleStr = parts[0].trim();
+      if (!companyStr && parts.length >= 2) companyStr = parts[parts.length - 1].trim();
+    }
+
+    // Fallback 3: JSON-LD JobPosting (last resort).
     if (!titleStr && !companyStr && !descStr) {
       const ld = scrapeFromJobPostingLd();
       if (ld) {
@@ -914,8 +984,8 @@
       ".job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, " +
       ".topcard__title, .topcard h1, " +
       "h1.t-24, h1.t-16, h1.topcard__title"
-    );
-    const descReady = root.querySelector("#job-details, .jobs-description__content, #job-view-description, .jobs-description, .description, .jobs-box__group");
+    ) || findAboutJobHeading();
+    const descReady = root.querySelector("#job-details, .jobs-description__content, #job-view-description, .jobs-description, .description, .jobs-box__group") || findAboutJobHeading();
     if (!topCardReady && !descReady) {
       // Panel container exists but job content hasn't loaded yet — skip this
       // cycle without setting injectedForJobId, so the MutationObserver can
