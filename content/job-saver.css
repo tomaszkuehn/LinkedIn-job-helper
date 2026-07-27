@@ -449,7 +449,16 @@
   white-space: pre-wrap; word-wrap: break-word;
   font: 13px/1.6 "Segoe UI", Arial, sans-serif;
   margin: 0; color: #1f1f1f;
+  padding: 0;
 }
+.ljs-translate-pane__text p {
+  margin: 0 0 14px 0;
+  font: 13px/1.7 "Segoe UI", Arial, sans-serif;
+  color: #1f1f1f;
+  word-wrap: break-word;
+}
+.ljs-translate-pane__text p:last-child { margin-bottom: 0; }
+.ljs-translate-empty { color: #999; font-style: italic; }
 .ljs-translate-actions {
   padding: 12px 20px; border-top: 1px solid #eef0f3;
   background: #f9fafb; display: flex; gap: 10px; justify-content: flex-end;

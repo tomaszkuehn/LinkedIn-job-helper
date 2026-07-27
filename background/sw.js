@@ -193,30 +193,43 @@ async function translateChunk(text, targetLang) {
 async function translateText(text, targetLang) {
   const MAX_CHUNK = 4500; // Google's per-request limit is ~5000 chars; keep margin.
   if (text.length <= MAX_CHUNK) return translateChunk(text, targetLang);
-  // Split by paragraphs, accumulate up to MAX_CHUNK.
-  const paragraphs = text.split(/\n+/);
+
+  // Split by blank lines into paragraphs; translate each paragraph separately
+  // so we can re-insert blank-line separators in the output (Google's segment
+  // response tends to collapse paragraph breaks). Long paragraphs are further
+  // hard-split to stay under the per-request limit.
+  const paragraphs = text.split(/\n{2,}/);
   const chunks = [];
-  let cur = "";
   for (const p of paragraphs) {
-    if ((cur + "\n" + p).length > MAX_CHUNK) {
-      if (cur) chunks.push(cur);
-      // If a single paragraph exceeds the limit, hard-split it.
-      if (p.length > MAX_CHUNK) {
-        for (let i = 0; i < p.length; i += MAX_CHUNK) {
-          chunks.push(p.slice(i, i + MAX_CHUNK));
-        }
-        cur = "";
-      } else {
-        cur = p;
-      }
+    if (!p) continue;
+    if (p.length <= MAX_CHUNK) {
+      chunks.push(p);
     } else {
-      cur = cur ? cur + "\n" + p : p;
+      // Hard-split a single long paragraph by single newlines, then by length.
+      const lines = p.split(/\n/);
+      let cur = "";
+      for (const line of lines) {
+        if ((cur + "\n" + line).length > MAX_CHUNK) {
+          if (cur) chunks.push(cur);
+          if (line.length > MAX_CHUNK) {
+            for (let i = 0; i < line.length; i += MAX_CHUNK) {
+              chunks.push(line.slice(i, i + MAX_CHUNK));
+            }
+            cur = "";
+          } else {
+            cur = line;
+          }
+        } else {
+          cur = cur ? cur + "\n" + line : line;
+        }
+      }
+      if (cur) chunks.push(cur);
     }
   }
-  if (cur) chunks.push(cur);
   const results = await Promise.all(chunks.map(c => translateChunk(c, targetLang)));
+  // Join translated paragraphs with blank line, preserving original structure.
   return {
-    text: results.map(r => r.text).join("\n"),
+    text: results.map(r => r.text).join("\n\n"),
     sourceLang: results[0] ? results[0].sourceLang : "",
   };
 }

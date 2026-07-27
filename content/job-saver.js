@@ -1288,14 +1288,14 @@
     const saveBtn = overlay.querySelector(".ljs-translate-save");
     const copyBtn = overlay.querySelector(".ljs-translate-copy");
 
-    // Show original (preserve line breaks via <pre>).
-    originalEl.innerHTML = "<pre>" + escInline(text) + "</pre>";
+    // Show original (render paragraphs as <p> for proper visual spacing).
+    originalEl.innerHTML = renderParagraphs(text);
 
     // Pre-fill from stored translation if present.
     try {
       const stored = await getStoredTranslation(jobId, meta);
       if (stored && stored.translationEn) {
-        resultEl.innerHTML = "<pre>" + escInline(stored.translationEn) + "</pre>";
+        resultEl.innerHTML = renderParagraphs(stored.translationEn);
         langEl.textContent = "· " + langName(stored.sourceLang);
         statusEl.style.display = "none";
         saveBtn.disabled = false;
@@ -1327,7 +1327,7 @@
       const res = await translateViaBackground(text, "en");
       translatedText = res.translatedText;
       sourceLang = res.sourceLang;
-      resultEl.innerHTML = "<pre>" + escInline(translatedText) + "</pre>";
+      resultEl.innerHTML = renderParagraphs(translatedText);
       langEl.textContent = "· " + langName(sourceLang);
       statusEl.style.display = "none";
       saveBtn.disabled = false;
@@ -1380,6 +1380,20 @@
 
   function escInline(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  // Render multi-line text as <p> paragraphs (split on blank lines) with
+  // <br> for soft line breaks within a paragraph. Gives proper visual
+  // spacing between paragraphs (CSS margins) instead of relying on
+  // pre-wrap rendering of "\n\n".
+  function renderParagraphs(text) {
+    const t = String(text || "").replace(/\r\n/g, "\n");
+    const paragraphs = t.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+    if (paragraphs.length === 0) return '<p class="ljs-translate-empty">(empty)</p>';
+    return paragraphs.map(p => {
+      const inner = escInline(p).replace(/\n/g, "<br>");
+      return "<p>" + inner + "</p>";
+    }).join("");
   }
 
   // ---------- Options overlay (full options page in an iframe) ----------
