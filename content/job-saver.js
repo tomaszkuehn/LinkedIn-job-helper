@@ -788,31 +788,20 @@
     // LinkedIn updates the apply button's data-job-id BEFORE the top-card
     // re-renders, so for a brief window the apply button references the NEW job
     // while the title link / company / location / description still show the
-    // PREVIOUS job. Without this guard we'd persist a job with the new jobId but
-    // the old company/title — and that company would then appear next to a
-    // different row in Options. If the top-card's title link references a
-    // different jobId than the apply button, treat the whole detail panel as
-    // stale and return empty meta so callers (handleSave / recordSeen) bail out.
+    // PREVIOUS job. The title link's /jobs/view/<id>/ always matches the
+    // actually-rendered title/company/description, so we trust it as the source
+    // of truth for finalJobId instead of bailing out. This way the user can
+    // still save/translate the job they SEE, and we never mix a new jobId with
+    // an old company (which would cause cross-row contamination in Options).
     const _titleLink = titleEl
       ? (titleEl.tagName === "A" ? titleEl : titleEl.querySelector('a[href*="/jobs/view/"]'))
       : null;
     if (_titleLink && finalJobId) {
       const m = (_titleLink.getAttribute("href") || "").match(/\/jobs\/view\/(\d+)/);
       if (m && String(m[1]) !== String(finalJobId)) {
-        console.warn("[LJS] top-card stale — title link jobId", m[1], "≠ apply/URL jobId", finalJobId,
-          "(LinkedIn SPA mid-transition). Returning empty meta to avoid cross-row contamination.");
-        return {
-          jobId: finalJobId,
-          title: "",
-          company: "",
-          location: "",
-          workplaceType: "",
-          city: "",
-          salary: "",
-          url: "https://www.linkedin.com/jobs/view/" + finalJobId + "/",
-          descriptionHtml: "",
-          descriptionText: "",
-        };
+        console.warn("[LJS] top-card mid-transition — title link jobId", m[1],
+          "≠ apply/URL jobId", finalJobId, "(trusting title-link jobId; matches rendered content)");
+        finalJobId = String(m[1]);
       }
     }
 
