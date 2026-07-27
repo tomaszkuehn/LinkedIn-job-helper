@@ -466,13 +466,26 @@
   }
 
   function currentJobId(root) {
-    // 1) URL path /jobs/view/<id>
+    // PRIORITY: signals that are bound to the actually-rendered detail panel.
+    // On SPA transitions (collections/recommended), the URL param currentJobId
+    // and the active card can lag behind the detail panel by a tick — scraping
+    // jobId from inside the detail root avoids mismatched (title, jobId) pairs.
+
+    // 1) Any element with data-job-id inside the detail root (e.g. apply button)
+    if (root) {
+      const el = root.querySelector("[data-job-id]");
+      if (el) return el.getAttribute("data-job-id");
+    }
+    // 2) Apply button anywhere in the document
+    const anyApply = document.querySelector(".jobs-apply-button[data-job-id], [data-live-test-job-apply-button][data-job-id]");
+    if (anyApply) return anyApply.getAttribute("data-job-id");
+    // 3) URL path /jobs/view/<id>
     const m = location.pathname.match(/\/jobs\/view\/(\d+)/);
     if (m) return m[1];
-    // 2) URL query param currentJobId=<id>
+    // 4) URL query param currentJobId=<id>
     const qm = location.search.match(/[?&]currentJobId=(\d+)/);
     if (qm) return qm[1];
-    // 3) Active job card on the list (two-pane view: search / collections / recommended)
+    // 5) Active job card on the list (two-pane view: search / collections / recommended)
     const active = document.querySelector(
       ".job-card-container[data-job-id].jobs-search-results-list__list-item--active, " +
       ".job-card-container[data-job-id][aria-current='page'], " +
@@ -485,14 +498,6 @@
       ".scaffold-layout__list .job-card-container[data-job-id][aria-current='page']"
     );
     if (active) return active.getAttribute("data-job-id");
-    // 4) Any element with data-job-id inside the detail root
-    if (root) {
-      const el = root.querySelector("[data-job-id]");
-      if (el) return el.getAttribute("data-job-id");
-    }
-    // 5) Apply button anywhere
-    const anyApply = document.querySelector(".jobs-apply-button[data-job-id], [data-live-test-job-apply-button][data-job-id]");
-    if (anyApply) return anyApply.getAttribute("data-job-id");
     // 6) og:url meta or canonical with /jobs/view/<id>/
     const og = document.querySelector('meta[property="og:url"][content]');
     if (og) {
@@ -598,15 +603,27 @@
     // with currency symbols) or in the description text. We try both paths.
     const salary = scrapeSalary(root, _descText);
 
+    // Sanity check: prefer data-job-id from inside the detail root (apply button)
+    // over the passed-in jobId, which may come from a stale URL on SPA transitions.
+    let finalJobId = String(jobId);
+    const applyBtn = root.querySelector("[data-job-id]");
+    if (applyBtn) {
+      const rootJobId = applyBtn.getAttribute("data-job-id");
+      if (rootJobId && String(rootJobId) !== finalJobId) {
+        console.warn("[LJS] jobId mismatch — URL/card said", finalJobId, "but detail root says", rootJobId, "(trusting detail root)");
+        finalJobId = String(rootJobId);
+      }
+    }
+
     return {
-      jobId: String(jobId),
+      jobId: finalJobId,
       title: textClean(titleEl),
       company: textClean(companyEl),
       location,
       workplaceType,
       city,
       salary,
-      url: "https://www.linkedin.com/jobs/view/" + jobId + "/",
+      url: "https://www.linkedin.com/jobs/view/" + finalJobId + "/",
       descriptionHtml: descEl ? descEl.innerHTML : "",
       descriptionText: _descText,
     };
