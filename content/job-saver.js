@@ -109,6 +109,9 @@
       else if (/\bon[-\s]?site\b/.test(locLower) || /\bin[-\s]?office\b/.test(locLower)) workplaceType = "onsite";
       let cleaned = loc.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s*·\s*.*$/, "").trim();
       cleaned = cleaned.replace(/\s*(remote|hybrid|on[-\s]?site|in[-\s]?office)\b.*$/i, "").trim();
+      // Strip regional suffixes like "Metropolitan Area", "Greater <X>", "<X> Area"
+      // so "Poznan Metropolitan Area" → "Poznan" (matches preferredCities / coords).
+      cleaned = cleaned.replace(/\s+(metropolitan\s+area|greater\s+area|area|region|metro\s+area)\s*$/i, "").trim();
       if (cleaned) {
         const parts = cleaned.split(",").map(s => s.trim()).filter(Boolean);
         if (parts.length > 1) city = parts[0];
@@ -731,6 +734,21 @@
       }
     }
 
+    // Obfuscated-layout fallback: LinkedIn renders workplace-type as a link
+    // (<a href="/jobs/view/<id>/"><svg check-small/><span>On-site</span></a>)
+    // alongside "Full-time". Class names are hashed, so detect by text content
+    // of anchors/spans inside the top-card. We scan links pointing to
+    // /jobs/view/<id>/ whose visible label is exactly a workplace keyword.
+    if (!workplaceType) {
+      const anchors = root.querySelectorAll('a[href*="/jobs/view/"]');
+      for (const a of anchors) {
+        const label = (a.textContent || "").trim().toLowerCase();
+        if (label === "remote") { workplaceType = "remote"; break; }
+        if (label === "hybrid") { workplaceType = "hybrid"; break; }
+        if (label === "on-site" || label === "onsite" || label === "in-office") { workplaceType = "onsite"; break; }
+      }
+    }
+
     // Location: try the tertiary description first, then the active job card on the left
     // (in two-pane view the card often has the full "City, Country (Workplace)" string).
     let location = textClean(locEl);
@@ -853,14 +871,27 @@
         if (companyLink) companyStr = (companyLink.textContent || "").trim();
       }
       if (!locationStr) {
-        // Metadata paragraph: "Germany · Reposted 6 days ago · Over 100 applicants"
+        // Metadata paragraph (obfuscated or standard layout):
+        // "Poznan Metropolitan Area · 5 days ago · 4 people clicked apply"
+        // The location is the FIRST <span> child of the paragraph that also
+        // contains "·" and a time/applicant marker. We prefer a span whose text
+        // does NOT look like a time/applicant phrase (avoids grabbing "5 days ago").
         const ps = root.querySelectorAll("p");
         for (const p of ps) {
           const t = (p.textContent || "").trim();
-          if (t.includes("·") && /repost|applicants|ago|promoted/i.test(t)) {
-            const firstSpan = p.querySelector("span");
-            if (firstSpan) locationStr = (firstSpan.textContent || "").trim();
-            break;
+          if (t.includes("·") && /repost|applicants|ago|promoted|clicked apply|apply\b/i.test(t)) {
+            const spans = p.querySelectorAll("span");
+            for (const s of spans) {
+              const st = (s.textContent || "").trim();
+              if (!st) continue;
+              // Skip spans that are time/applicant metadata, not a location.
+              if (/^\d+\s+(day|hour|minute|second|week|month|year)s?\s+ago$/i.test(st)) continue;
+              if (/repost|applicants|clicked apply|promoted/i.test(st)) continue;
+              if (/^·$/.test(st)) continue;
+              locationStr = st;
+              break;
+            }
+            if (locationStr) break;
           }
         }
       }
