@@ -481,30 +481,41 @@
       return topcard;
     }
 
-    // Heuristic fallback: "About the job" heading OR Easy Apply button.
+    // Heuristic fallback: "About the job" heading OR Save/Easy Apply button.
     // LinkedIn sometimes ships obfuscated class names (hashes that change
     // between builds), making CSS selectors unreliable. Stable signals:
+    //   - a button with aria-label "Save the job" / "Saved" (header actions)
+    //   - a link with aria-label "Easy Apply to this job"
     //   - an H2 with text "About the job" (description section)
-    //   - a link/button with aria-label "Easy Apply to this job" / "Save the job"
-    // We prefer the Easy Apply container (the job header) as the root so the
-    // toolbar is injected in the header, next to LinkedIn's own buttons —
+    // We prefer the Save/Easy Apply container (the job header) as the root so
+    // the toolbar is injected in the header, next to LinkedIn's own buttons —
     // not down in the description section.
-    const easyApply = document.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
+    const saveBtn = document.querySelector('button[aria-label="Save the job"], button[aria-label="Save"], button[aria-label="Saved"], button[aria-label*="Save the job"]');
+    const easyApply = saveBtn || document.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
     if (easyApply) {
-      // Climb to the top-card container that also holds the title + company.
-      // The Easy Apply button sits inside the action row; the header is its
-      // nearest ancestor that also contains the job title paragraph.
+      // Climb to the outermost header container that holds title + actions.
+      // Stop when we reach an ancestor that also contains a paragraph with
+      // the job title (matches document.title's first segment) OR multiple
+      // paragraphs (title + metadata row).
+      const docTitle = (document.title || "").replace(/\s*\|\s*LinkedIn\s*$/i, "");
+      const titleSeg = docTitle.split(/\s*\|\s*/)[0]?.trim() || "";
       let node = easyApply;
       let header = null;
       while (node && node !== document.body) {
-        // The job title on obfuscated layouts is a <p> whose text matches document.title.
-        // Climb until we find a container with multiple <p> children (title + location).
         const ps = node.querySelectorAll("p");
-        if (ps.length >= 2) { header = node; break; }
+        // Header contains the title paragraph (matches document.title) or
+        // at least 2 paragraphs (title + location metadata).
+        if (titleSeg) {
+          for (const p of ps) {
+            if ((p.textContent || "").trim() === titleSeg) { header = node; break; }
+          }
+        }
+        if (!header && ps.length >= 2) { header = node; }
+        if (header) break;
         node = node.parentElement;
       }
       if (header) return header;
-      // Fallback: the closest section-like ancestor.
+      // Fallback: climb to a section-like ancestor.
       return easyApply.closest("section, article, main") || easyApply.parentElement || document.body;
     }
 
@@ -1053,21 +1064,61 @@
     // Insert toolbar AFTER LinkedIn's action row (Easy Apply / Save buttons),
     // as a separate block. We do not append into LinkedIn's button container, so the
     // original layout is preserved.
-    // Strategy: locate the "Easy Apply" / "Save" buttons by aria-label (stable
-    // across obfuscated class name revisions) and use their container as anchor.
+    // Strategy: locate the "Save" / "Easy Apply" buttons by aria-label (stable
+    // across obfuscated class name revisions). We anchor on the CONTAINER that
+    // holds the action buttons (its parent), and insert the toolbar as the next
+    // sibling — i.e. on a new line right after the Save button row.
+    const saveJobBtn = root.querySelector('button[aria-label="Save the job"], button[aria-label="Save"], button[aria-label="Saved"], button[aria-label*="Save the job"]');
     const easyApplyBtn = root.querySelector('a[aria-label="Easy Apply to this job"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
-    const saveJobBtn = root.querySelector('button[aria-label="Save the job"], button[aria-label*="Save"]');
-    const actionRow =
-      root.querySelector(".mt4 .display-flex") ||
-      root.querySelector(".job-details-jobs-unified-top-card__sticky-buttons-container") ||
-      root.querySelector(".jobs-unified-top-card__actions") ||
-      root.querySelector(".jobs-unified-top-card__content") ||
-      root.querySelector(".jobs-apply-button--preview-banner") ||
-      root.querySelector(".job-details-jobs-unified-top-card__sticky-action-buttons") ||
-      // Obfuscated layout: climb from Easy Apply / Save buttons to their container.
-      (easyApplyBtn ? easyApplyBtn.closest('div') : null) ||
-      (saveJobBtn ? saveJobBtn.closest('div') : null) ||
-      (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex, .jobs-unified-top-card__actions, .job-details-jobs-unified-top-card__sticky-action-buttons") : null);
+    // The "actionRow" is the innermost container that holds the Save button;
+    // we insert AFTER it (as its parent's next child) so the toolbar appears
+    // on its own line below the LinkedIn buttons.
+    let actionRow = null;
+    if (saveJobBtn) {
+      // Climb to the container whose direct child is the Save button (or a
+      // wrapper of Easy Apply + Save). We want the row that visually contains
+      // both buttons side by side.
+      let n = saveJobBtn;
+      while (n && n !== root) {
+        const parent = n.parentElement;
+        if (!parent) break;
+        // If parent contains both Save and Easy Apply (or parent has 2+ button/link
+        // children), treat parent as the action row.
+        const actionKids = parent.querySelectorAll('button[aria-label*="Save"], a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"]');
+        if (actionKids.length >= 2 || (actionKids.length >= 1 && easyApplyBtn && parent.contains(easyApplyBtn))) {
+          actionRow = parent;
+          break;
+        }
+        if (parent === root) { actionRow = n; break; }
+        n = parent;
+      }
+      if (!actionRow) actionRow = saveJobBtn.parentElement;
+    }
+    if (!actionRow && easyApplyBtn) {
+      // Same logic climbing from Easy Apply.
+      let n = easyApplyBtn;
+      while (n && n !== root) {
+        const parent = n.parentElement;
+        if (!parent) break;
+        const actionKids = parent.querySelectorAll('a[aria-label*="Easy Apply"], button[aria-label*="Easy Apply"], button[aria-label*="Save"]');
+        if (actionKids.length >= 2) { actionRow = parent; break; }
+        if (parent === root) { actionRow = n; break; }
+        n = parent;
+      }
+      if (!actionRow) actionRow = easyApplyBtn.parentElement;
+    }
+    // Legacy selectors as last resort.
+    if (!actionRow) {
+      actionRow =
+        root.querySelector(".mt4 .display-flex") ||
+        root.querySelector(".job-details-jobs-unified-top-card__sticky-buttons-container") ||
+        root.querySelector(".jobs-unified-top-card__actions") ||
+        root.querySelector(".jobs-unified-top-card__content") ||
+        root.querySelector(".jobs-apply-button--preview-banner") ||
+        root.querySelector(".job-details-jobs-unified-top-card__sticky-action-buttons") ||
+        (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex, .jobs-unified-top-card__actions, .job-details-jobs-unified-top-card__sticky-action-buttons") : null);
+    }
+    // Anchor: the parent that will receive the toolbar as a new child.
     const anchor = actionRow && actionRow.parentElement ? actionRow.parentElement : root;
 
     // Toolbar container: title + two rows.
@@ -1276,26 +1327,22 @@
       }).catch(() => {});
     }
 
-    // Insert AFTER the LinkedIn action row, as a sibling.
-    // Prefer (in order): action row's next sibling, top-card, description block,
-    // finally the root itself.
+    // Insert AFTER the LinkedIn action row, as a sibling (own line).
+    // The anchor (actionRow.parentElement) receives the toolbar as a new child
+    // right after actionRow — so it appears below the Easy Apply / Save row.
     const topCard = root.querySelector(
       ".job-details-jobs-unified-top-card, .jobs-unified-top-card"
     );
-    if (actionRow && actionRow.nextSibling) {
-      anchor.insertBefore(toolbar, actionRow.nextSibling);
-    } else if (actionRow) {
-      anchor.appendChild(toolbar);
+    if (actionRow && actionRow.parentElement) {
+      actionRow.insertAdjacentElement("afterend", toolbar);
     } else if (topCard && topCard.nextSibling) {
       root.insertBefore(toolbar, topCard.nextSibling);
     } else if (topCard) {
       root.appendChild(toolbar);
     } else {
-      // Obfuscated layout: insert right after the action row's container,
-      // i.e. as the next child of the header. Falls back to root append.
       root.appendChild(toolbar);
     }
-    console.log("[LJS] toolbar appended — in DOM:", !!document.getElementById(TOOLBAR_ID), "actionRow:", !!actionRow, "topCard:", !!topCard, "anchor:", anchor.className.slice(0,60));
+    console.log("[LJS] toolbar appended — in DOM:", !!document.getElementById(TOOLBAR_ID), "actionRow:", !!actionRow, "topCard:", !!topCard, "anchor:", (anchor && anchor.className || "").slice(0,60));
 
     // Preference banner: green if remote or (onsite/hybrid in a preferred city),
     // red if onsite/hybrid not in a preferred city, neutral/none otherwise.
