@@ -324,7 +324,6 @@
         company: meta.company || "",
         location: meta.location || "",
         workplaceType: meta.workplaceType || "",
-        city: meta.city || "",
         descriptionText: meta.descriptionText || "",
         descriptionHtml: meta.descriptionHtml || "",
         jobIds: [String(meta.jobId)],
@@ -1047,7 +1046,6 @@
         company: meta.company,
         location: meta.location,
         workplaceType: meta.workplaceType || "",
-        city: meta.city || "",
         salary: meta.salary || "",
         url: meta.url,
         descriptionHtml: meta.descriptionHtml || "",
@@ -1852,7 +1850,6 @@
         if (!existing.jobIds.includes(meta.jobId)) existing.jobIds.push(meta.jobId);
         // Refresh workplace/city if they were missing (e.g. description loaded since first view).
         if (!existing.workplaceType && meta.workplaceType) existing.workplaceType = meta.workplaceType;
-        if (!existing.city && meta.city) existing.city = meta.city;
         if (!existing.location && meta.location) existing.location = meta.location;
         if (!existing.salary && meta.salary) existing.salary = meta.salary;
         await upsertSeen(existing);
@@ -1864,7 +1861,6 @@
           company: meta.company,
           location: meta.location || "",
           workplaceType: meta.workplaceType || "",
-          city: meta.city || "",
           salary: meta.salary || "",
           descriptionText: meta.descriptionText,
           descriptionHtml: meta.descriptionHtml || "",

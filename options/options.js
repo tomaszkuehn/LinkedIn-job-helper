@@ -86,7 +86,7 @@ function renderSaved() {
   const sf = document.getElementById("filter-status-saved").value;
   const wpf = document.getElementById("filter-wp-saved").value;
   const filtered = jobs.filter(j => {
-    if (q && ![j.title, j.company, j.location, j.city, j.descriptionText].some(v => (v || "").toLowerCase().includes(q))) return false;
+    if (q && ![j.title, j.company, j.location, j.descriptionText].some(v => (v || "").toLowerCase().includes(q))) return false;
     if (sf === "__none__") return !j.status;
     if (sf) return j.status === sf;
     if (wpf === "__none__") return !j.workplaceType;
@@ -103,7 +103,6 @@ function renderSaved() {
       <td>${escHtml(job.company || "")}</td>
       <td>${escHtml(job.location || "")}</td>
       <td>${escHtml(WP_LABELS_OPT[job.workplaceType] || "—")}</td>
-      <td>${escHtml(job.city || "—")}</td>
       <td>${escHtml(job.salary || "—")}</td>
       <td>
         <select data-job-status="${escAttr(job.jobId)}" style="padding:4px;border:1px solid #ccc;border-radius:4px;font:inherit;">
@@ -174,7 +173,7 @@ function renderSeen() {
   const sf = document.getElementById("filter-status-seen").value;
   const wpf = document.getElementById("filter-wp-seen").value;
   const filtered = seen.filter(s => {
-    if (q && ![s.title, s.company, s.location, s.city, s.descriptionText].some(v => (v || "").toLowerCase().includes(q))) return false;
+    if (q && ![s.title, s.company, s.location, s.descriptionText].some(v => (v || "").toLowerCase().includes(q))) return false;
     if (sf === "__none__") return !s.status;
     if (sf) return s.status === sf;
     if (wpf === "__none__") return !s.workplaceType;
@@ -192,7 +191,6 @@ function renderSeen() {
       <td>${escHtml(s.title || "(untitled)")}</td>
       <td>${escHtml(s.company || "")}</td>
       <td>${escHtml(WP_LABELS_OPT[s.workplaceType] || "—")}</td>
-      <td>${escHtml(s.city || "—")}</td>
       <td>${escHtml(s.salary || "—")}</td>
       <td class="${repost ? "repost" : ""}">${repost ? "🔁 repost" : "1×"} (seenCount: ${s.seenCount || 1})</td>
       <td>
@@ -306,7 +304,7 @@ document.getElementById("export-json").addEventListener("click", () => {
 });
 
 document.getElementById("export-csv").addEventListener("click", () => {
-  const headers = ["jobId", "title", "company", "location", "workplaceType", "city", "url", "status", "savedAt", "descriptionText"];
+  const headers = ["jobId", "title", "company", "location", "workplaceType", "url", "status", "savedAt", "descriptionText"];
   const esc = v => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
   const rows = [headers.join(",")];
   for (const j of jobs) rows.push(headers.map(h => esc(j[h])).join(","));
@@ -314,7 +312,7 @@ document.getElementById("export-csv").addEventListener("click", () => {
 });
 
 document.getElementById("export-seen").addEventListener("click", () => {
-  const headers = ["fingerprint", "title", "company", "location", "workplaceType", "city", "seenCount", "status", "firstSeenAt", "lastSeenAt", "jobIds", "descriptionText"];
+  const headers = ["fingerprint", "title", "company", "location", "workplaceType", "seenCount", "status", "firstSeenAt", "lastSeenAt", "jobIds", "descriptionText"];
   const esc = v => `"${String(v ?? "").replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
   const rows = [headers.join(",")];
   for (const s of seen) {
@@ -417,7 +415,6 @@ function showPreview(job, kind) {
     <div class="pv-meta">
       ${job.location ? "<span>📍 " + escHtml(job.location) + "</span>" : ""}
       ${job.workplaceType ? "<span>" + escHtml(WP_LABELS_OPT[job.workplaceType] || job.workplaceType) + "</span>" : ""}
-      ${job.city ? "<span>🏙 " + escHtml(job.city) + "</span>" : ""}
       ${job.salary ? "<span>💰 " + escHtml(job.salary) + "</span>" : ""}
       <span class="pv-status pv-status--${escAttr(status || "none")}">Status: ${escHtml(statusLabel)}</span>
       ${dateLabel ? "<span>" + escHtml(dateLabel) + "</span>" : ""}
