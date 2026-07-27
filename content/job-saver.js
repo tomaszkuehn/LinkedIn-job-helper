@@ -422,16 +422,47 @@
   }
 
   function findDetailRoot() {
-    return (
-      document.querySelector(".jobs-search__job-details--wrapper") ||
-      document.querySelector(".jobs-search__job-details--container") ||
-      document.querySelector(".job-view-layout") ||
-      document.querySelector(".jobs-job-view-layout") ||
-      (document.querySelector("#job-details") ? document.querySelector("#job-details").closest(
-        ".jobs-description, .job-view-layout, .jobs-job-view-layout, .jobs-search__job-details--container, .jobs-search__job-details--wrapper"
-      ) : null) ||
-      null
+    // Known containers across LinkedIn jobs layouts (search, view, collections, recommended).
+    const direct = document.querySelector(
+      ".jobs-search__job-details--wrapper, " +
+      ".jobs-search__job-details--container, " +
+      ".jobs-search__job-details, " +
+      ".job-view-layout, " +
+      ".jobs-job-view-layout, " +
+      ".jobs-search-results__detail-panel, " +
+      ".scaffold-layout__detail, " +
+      ".scaffold-layout__list-detail, " +
+      ".job-details-jobs-unified-top-card"
     );
+    if (direct) return direct;
+
+    // Fallback: walk up from #job-details to the nearest sensible container
+    // (one that also contains the unified top-card with title/company).
+    const desc = document.querySelector("#job-details");
+    if (desc) {
+      // Climb ancestors until we find one containing the top-card title or company.
+      let node = desc.parentElement;
+      while (node && node !== document.body) {
+        if (node.querySelector(
+          ".job-details-jobs-unified-top-card__job-title, " +
+          ".job-details-jobs-unified-top-card__company-name, " +
+          ".jobs-unified-top-card__job-title, " +
+          "h1"
+        )) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      // Last resort: the closest known wrapper class.
+      return desc.closest(
+        ".jobs-description, .job-view-layout, .jobs-job-view-layout, " +
+        ".jobs-search__job-details--container, .jobs-search__job-details--wrapper, " +
+        ".jobs-search__job-details, .scaffold-layout__detail, .scaffold-layout__list-detail"
+      );
+    }
+
+    // Final fallback: unified top-card alone (better than nothing).
+    return document.querySelector(".jobs-unified-top-card") || null;
   }
 
   function currentJobId(root) {
@@ -441,12 +472,17 @@
     // 2) URL query param currentJobId=<id>
     const qm = location.search.match(/[?&]currentJobId=(\d+)/);
     if (qm) return qm[1];
-    // 3) Active job card on the list (two-pane view)
+    // 3) Active job card on the list (two-pane view: search / collections / recommended)
     const active = document.querySelector(
       ".job-card-container[data-job-id].jobs-search-results-list__list-item--active, " +
       ".job-card-container[data-job-id][aria-current='page'], " +
+      ".job-card-container[data-job-id].job-card-list--active, " +
+      ".job-card-container[data-job-id].active, " +
       ".jobs-search-results__list-item--active .job-card-list[data-job-id], " +
-      ".jobs-search-results__list-item--active .job-card-container[data-job-id]"
+      ".jobs-search-results__list-item--active .job-card-container[data-job-id], " +
+      ".jobs-search-results__list-item--active-wrapper .job-card-container[data-job-id], " +
+      ".scaffold-layout__list .job-card-container[data-job-id].job-card-list--active, " +
+      ".scaffold-layout__list .job-card-container[data-job-id][aria-current='page']"
     );
     if (active) return active.getAttribute("data-job-id");
     // 4) Any element with data-job-id inside the detail root
@@ -476,14 +512,25 @@
       ".job-details-jobs-unified-top-card__job-title h1, " +
       ".job-details-jobs-unified-top-card__job-title a, " +
       ".job-details-jobs-unified-top-card__job-title, " +
+      ".jobs-unified-top-card__job-title h1, " +
+      ".jobs-unified-top-card__job-title a, " +
+      ".jobs-unified-top-card__job-title, " +
       "h1"
     );
     const companyEl = root.querySelector(
       ".job-details-jobs-unified-top-card__company-name a, " +
-      ".job-details-jobs-unified-top-card__company-name"
+      ".job-details-jobs-unified-top-card__company-name, " +
+      ".jobs-unified-top-card__company-name a, " +
+      ".jobs-unified-top-card__company-name, " +
+      ".artdeco-entity-lockup__subtitle"
     );
     const locEl = root.querySelector(
-      ".job-details-jobs-unified-top-card__tertiary-description-container .tvm__text"
+      ".job-details-jobs-unified-top-card__tertiary-description-container .tvm__text, " +
+      ".jobs-unified-top-card__tertiary-description-container .tvm__text, " +
+      ".job-details-jobs-unified-top-card__bullet, " +
+      ".jobs-unified-top-card__bullet, " +
+      ".job-details-jobs-unified-top-card__subtitle, " +
+      ".jobs-unified-top-card__subtitle"
     );
     const descEl = root.querySelector("#job-details") ||
       root.querySelector(".jobs-description-content__text--stretch") ||
@@ -734,18 +781,46 @@
     if (!root) { removeButton(); return; }
     const jobId = currentJobId(root);
     if (!jobId) return;
+
+    // Readiness guard: don't inject into an empty detail panel (collections /
+    // recommended layouts render the job content asynchronously into
+    // .scaffold-layout__list-detail). If we inject too early, LinkedIn may
+    // overwrite our toolbar when it renders, and our injectedForJobId guard
+    // would then prevent re-injection. Wait for real content.
+    const topCardReady = root.querySelector(
+      ".job-details-jobs-unified-top-card, .jobs-unified-top-card, " +
+      ".job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, " +
+      "h1.t-24, h1.t-16"
+    );
+    const descReady = root.querySelector("#job-details, .jobs-description__content, #job-view-description");
+    if (!topCardReady && !descReady) {
+      // Panel container exists but job content hasn't loaded yet — skip this
+      // cycle without setting injectedForJobId, so the MutationObserver can
+      // re-trigger scanAll once LinkedIn renders the content.
+      // But if a toolbar from a previous job is still in the DOM, remove it
+      // so we don't show stale actions for the new (not-yet-loaded) job.
+      if (injectedForJobId && injectedForJobId !== String(jobId)) {
+        removeButton();
+      }
+      return;
+    }
+
     if (injectedForJobId === String(jobId) && document.getElementById(TOOLBAR_ID)) return;
     removeButton();
     injectedForJobId = String(jobId);
     console.log("[LJS] injectSaveButton — jobId:", jobId, "root:", root.className);
 
-    // Insert toolbar AFTER LinkedIn's action row (mt4 .display-flex with Easy Apply / Save),
+    // Insert toolbar AFTER LinkedIn's action row (Easy Apply / Save buttons),
     // as a separate block. We do not append into LinkedIn's button container, so the
     // original layout is preserved.
     const actionRow =
       root.querySelector(".mt4 .display-flex") ||
       root.querySelector(".job-details-jobs-unified-top-card__sticky-buttons-container") ||
-      (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex") : null);
+      root.querySelector(".jobs-unified-top-card__actions") ||
+      root.querySelector(".jobs-unified-top-card__content") ||
+      root.querySelector(".jobs-apply-button--preview-banner") ||
+      root.querySelector(".job-details-jobs-unified-top-card__sticky-action-buttons") ||
+      (root.querySelector("[data-live-test-job-apply-button]") ? root.querySelector("[data-live-test-job-apply-button]").closest(".mt4, .display-flex, .jobs-unified-top-card__actions, .job-details-jobs-unified-top-card__sticky-action-buttons") : null);
     const anchor = actionRow && actionRow.parentElement ? actionRow.parentElement : root;
 
     // Toolbar container: title + two rows.
@@ -926,15 +1001,24 @@
       }).catch(() => {});
     }
 
-    // Insert AFTER the LinkedIn action row, as a sibling. Falls back to append at end.
+    // Insert AFTER the LinkedIn action row, as a sibling.
+    // Prefer (in order): action row's next sibling, top-card, description block,
+    // finally the root itself.
+    const topCard = root.querySelector(
+      ".job-details-jobs-unified-top-card, .jobs-unified-top-card"
+    );
     if (actionRow && actionRow.nextSibling) {
       anchor.insertBefore(toolbar, actionRow.nextSibling);
     } else if (actionRow) {
       anchor.appendChild(toolbar);
+    } else if (topCard && topCard.nextSibling) {
+      root.insertBefore(toolbar, topCard.nextSibling);
+    } else if (topCard) {
+      root.appendChild(toolbar);
     } else {
       root.appendChild(toolbar);
     }
-    console.log("[LJS] toolbar appended — in DOM:", !!document.getElementById(TOOLBAR_ID), "actionRow:", !!actionRow, "anchor:", anchor.className.slice(0,60));
+    console.log("[LJS] toolbar appended — in DOM:", !!document.getElementById(TOOLBAR_ID), "actionRow:", !!actionRow, "topCard:", !!topCard, "anchor:", anchor.className.slice(0,60));
 
     // Preference banner: green if remote or (onsite/hybrid in a preferred city),
     // red if onsite/hybrid not in a preferred city, neutral/none otherwise.

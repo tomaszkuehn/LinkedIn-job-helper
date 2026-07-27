@@ -19,6 +19,22 @@
     td button { padding: 6px 12px; font-size: 13px; margin-right: 6px; }
     td button.ghost { border: 1px solid #0a66c2; }
     td button.danger { border: 1px solid #b00020; }
+    /* Icon action group (preview / copy / delete) */
+    .icon-group { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; padding: 0;
+      background: #fff; border: 1px solid #d0d7de; border-radius: 5px;
+      cursor: pointer; font-size: 14px; line-height: 1;
+      color: #555; transition: background .12s, border-color .12s, color .12s;
+    }
+    .icon-btn:hover { background: #f0f3f6; border-color: #b6c2cc; }
+    .icon-btn--view { color: #0a66c2; border-color: #0a66c2; }
+    .icon-btn--view:hover { background: #e8f1fb; border-color: #004182; color: #004182; }
+    .icon-btn--copy { color: #057642; border-color: #057642; }
+    .icon-btn--copy:hover { background: #e6f4ee; border-color: #03633a; color: #03633a; }
+    .icon-btn--delete { color: #b00020; border-color: #b00020; }
+    .icon-btn--delete:hover { background: #fde7e9; border-color: #8a0019; color: #8a0019; }
     input { padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 200px; font: inherit; font-size: 14px; }
     select { padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font: inherit; font-size: 14px; }
     table { width: 100%; border-collapse: collapse; margin-top: 16px; }
@@ -28,6 +44,23 @@
     .count { color: #666; font-size: 14px; margin: 4px 0 12px; }
     .ids { font-size: 12px; color: #999; }
     .repost { color: #b00020; font-weight: 600; }
+
+    /* Collapsible section (Seen jobs) */
+    details.collapsible { margin-top: 32px; }
+    details.collapsible > summary {
+      list-style: none; cursor: pointer; padding: 6px 4px; border-bottom: 1px solid #e0e6eb;
+      display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    }
+    details.collapsible > summary::-webkit-details-marker { display: none; }
+    details.collapsible > summary::before {
+      content: "▶"; font-size: 11px; color: #0a66c2; margin-right: 6px;
+      transition: transform .15s; display: inline-block;
+    }
+    details.collapsible[open] > summary::before { transform: rotate(90deg); }
+    details.collapsible > summary > h2 {
+      margin: 0; border: none; padding: 0; font-size: 18px; display: inline;
+    }
+    details.collapsible > summary > .count { margin: 0; }
 
     /* Preview modal */
     .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 40px 24px; }
@@ -126,35 +159,39 @@
     <tbody id="rows-saved"></tbody>
   </table>
 
-  <h2>Seen jobs <span style="font-weight:normal;font-size:12px;color:#777">(auto-registered, repost detection)</span></h2>
-  <p class="count" id="seen-count"></p>
-  <div class="toolbar">
-    <input id="search-seen" type="search" placeholder="Search seen…" />
-    <select id="filter-status-seen" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
-      <option value="">All statuses</option>
-      <option value="apply">Apply</option>
-      <option value="applied">Applied</option>
-      <option value="to-consider">Consider</option>
-      <option value="german">German</option>
-      <option value="ignored">Ignored</option>
-      <option value="__none__">No status</option>
-    </select>
-    <select id="filter-wp-seen" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
-      <option value="">All workplaces</option>
-      <option value="remote">Remote</option>
-      <option value="hybrid">Hybrid</option>
-      <option value="onsite">On-site</option>
-      <option value="__none__">No workplace</option>
-    </select>
-    <button id="export-seen" class="ghost">Export seen (CSV)</button>
-    <button id="clear-seen" class="danger">Clear seen</button>
-  </div>
-  <table id="table-seen">
-    <thead>
-      <tr><th>Title</th><th>Company</th><th>Workplace</th><th>City</th><th>Salary</th><th>Seen</th><th>Status</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Desc</th><th></th></tr>
-    </thead>
-    <tbody id="rows-seen"></tbody>
-  </table>
+  <details id="seen-section" class="collapsible">
+    <summary>
+      <h2>Seen jobs <span style="font-weight:normal;font-size:12px;color:#777">(auto-registered, repost detection)</span></h2>
+      <span class="count" id="seen-count"></span>
+    </summary>
+    <div class="toolbar">
+      <input id="search-seen" type="search" placeholder="Search seen…" />
+      <select id="filter-status-seen" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+        <option value="">All statuses</option>
+        <option value="apply">Apply</option>
+        <option value="applied">Applied</option>
+        <option value="to-consider">Consider</option>
+        <option value="german">German</option>
+        <option value="ignored">Ignored</option>
+        <option value="__none__">No status</option>
+      </select>
+      <select id="filter-wp-seen" style="padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;">
+        <option value="">All workplaces</option>
+        <option value="remote">Remote</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="onsite">On-site</option>
+        <option value="__none__">No workplace</option>
+      </select>
+      <button id="export-seen" class="ghost">Export seen (CSV)</button>
+      <button id="clear-seen" class="danger">Clear seen</button>
+    </div>
+    <table id="table-seen">
+      <thead>
+        <tr><th>Title</th><th>Company</th><th>Workplace</th><th>City</th><th>Salary</th><th>Seen</th><th>Status</th><th>First seen</th><th>Last seen</th><th>jobIds</th><th>Desc</th><th></th></tr>
+      </thead>
+      <tbody id="rows-seen"></tbody>
+    </table>
+  </details>
 
   <script type="module" src="options.js"></script>
 

@@ -117,8 +117,11 @@ function renderSaved() {
       <td>${job.savedAt ? new Date(job.savedAt).toLocaleString("en-US") : ""}</td>
       <td>${descLabel(job.descriptionText)}</td>
       <td>
-        <button data-view-saved="${escAttr(job.jobId)}" class="icon-btn" title="View" style="background:none;border:1px solid #0a66c2;color:#0a66c2;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">👁</button>
-        <button data-del-saved="${escAttr(job.jobId)}" class="icon-btn" title="Delete" style="background:none;border:1px solid #b00020;color:#b00020;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">🗑</button>
+        <span class="icon-group">
+          <button data-view-saved="${escAttr(job.jobId)}" class="icon-btn icon-btn--view" title="View">👁</button>
+          <button data-copy-saved="${escAttr(job.jobId)}" class="icon-btn icon-btn--copy" title="Copy content">📋</button>
+          <button data-del-saved="${escAttr(job.jobId)}" class="icon-btn icon-btn--delete" title="Delete">🗑</button>
+        </span>
       </td>
     `;
     tbody.appendChild(tr);
@@ -136,6 +139,19 @@ function renderSaved() {
       const id = btn.getAttribute("data-view-saved");
       const job = jobs.find(j => String(j.jobId) === String(id));
       if (job) showPreview(job, "saved");
+    });
+  });
+  tbody.querySelectorAll("[data-copy-saved]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-copy-saved");
+      const job = jobs.find(j => String(j.jobId) === String(id));
+      if (!job) return;
+      const txt = [job.title, job.company, job.location, job.url, "---", job.descriptionText].filter(Boolean).join("\n");
+      navigator.clipboard.writeText(txt).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = "✓";
+        setTimeout(() => (btn.textContent = orig), 1200);
+      });
     });
   });
   tbody.querySelectorAll("[data-job-status]").forEach(sel => {
@@ -193,9 +209,12 @@ function renderSeen() {
       <td class="ids">${(s.jobIds || []).join(", ")}</td>
       <td>${descLabel(s.descriptionText)}</td>
       <td>
-        <button data-view-seen="${escAttr(s.fingerprint)}" class="icon-btn" title="View" style="background:none;border:1px solid #0a66c2;color:#0a66c2;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">👁</button>
-        <button data-to-saved="${escAttr(s.fingerprint)}" class="icon-btn" title="Copy to saved" style="background:none;border:1px solid #057642;color:#057642;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">↳</button>
-        <button data-del-seen="${escAttr(s.fingerprint)}" class="icon-btn" title="Forget" style="background:none;border:1px solid #b00020;color:#b00020;cursor:pointer;padding:2px 8px;border-radius:4px;font-size:14px">🗑</button>
+        <span class="icon-group">
+          <button data-view-seen="${escAttr(s.fingerprint)}" class="icon-btn icon-btn--view" title="View">👁</button>
+          <button data-copy-seen="${escAttr(s.fingerprint)}" class="icon-btn icon-btn--copy" title="Copy content">📋</button>
+          <button data-to-saved="${escAttr(s.fingerprint)}" class="icon-btn icon-btn--copy" title="Copy to saved">↳</button>
+          <button data-del-seen="${escAttr(s.fingerprint)}" class="icon-btn icon-btn--delete" title="Forget">🗑</button>
+        </span>
       </td>
     `;
     tbody.appendChild(tr);
@@ -213,6 +232,20 @@ function renderSeen() {
       const fp = btn.getAttribute("data-view-seen");
       const s = seen.find(x => x.fingerprint === fp);
       if (s) showPreview(s, "seen");
+    });
+  });
+  tbody.querySelectorAll("[data-copy-seen]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const fp = btn.getAttribute("data-copy-seen");
+      const s = seen.find(x => x.fingerprint === fp);
+      if (!s) return;
+      const url = s.url || (s.jobIds && s.jobIds.length ? "https://www.linkedin.com/jobs/view/" + s.jobIds[0] + "/" : "");
+      const txt = [s.title, s.company, s.location, url, "---", s.descriptionText].filter(Boolean).join("\n");
+      navigator.clipboard.writeText(txt).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = "✓";
+        setTimeout(() => (btn.textContent = orig), 1200);
+      });
     });
   });
   tbody.querySelectorAll("[data-to-saved]").forEach(btn => {
