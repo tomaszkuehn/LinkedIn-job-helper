@@ -688,7 +688,25 @@
       ".topcard h1, " +
       "h1"
     );
-    const companyEl = root.querySelector(
+    // Scope company detection to the top-card so generic selectors like
+    // .artdeco-entity-lockup__subtitle don't match company names from the
+    // "About the company" / "Similar jobs" / left list panel sections.
+    // Prefer the explicit top-card container; fall back to the h1 title's
+    // nearest header ancestor; finally to the apply-button's container.
+    let _topCardScope = root.querySelector(
+      ".job-details-jobs-unified-top-card__container--two-pane, " +
+      ".job-details-jobs-unified-top-card__container, " +
+      ".jobs-unified-top-card__container, " +
+      ".job-details-jobs-unified-top-card, " +
+      ".jobs-unified-top-card, " +
+      ".topcard"
+    );
+    if (!_topCardScope) {
+      const _h1 = root.querySelector("h1, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title");
+      if (_h1) _topCardScope = _h1.closest("section, .relative, [class*='top-card']") || root;
+    }
+    if (!_topCardScope) _topCardScope = root;
+    const companyEl = _topCardScope.querySelector(
       ".job-details-jobs-unified-top-card__company-name a, " +
       ".job-details-jobs-unified-top-card__company-name, " +
       ".jobs-unified-top-card__company-name a, " +
@@ -697,6 +715,15 @@
       ".topcard__company-name, " +
       ".artdeco-entity-lockup__subtitle"
     );
+    // Obfuscated-layout fallback: LinkedIn wraps the company lockup in a div
+    // with aria-label="Company, <name>." — more reliable than the generic
+    // .artdeco-entity-lockup__subtitle, which can match company links in the
+    // "Similar jobs" section when root is the whole detail panel.
+    // NOTE: must be "Company," (comma) — "Company photos ..." is the photo
+    // carousel (its textContent is the navigation label "Previous", not the
+    // company name).
+    const companyElByAria = _topCardScope.querySelector('[aria-label^="Company,"]');
+    const companyElFinal = companyElByAria || companyEl;
     const locEl = root.querySelector(
       ".job-details-jobs-unified-top-card__tertiary-description-container .tvm__text, " +
       ".jobs-unified-top-card__tertiary-description-container .tvm__text, " +
@@ -800,7 +827,19 @@
     }
 
     let titleStr = textClean(titleEl);
-    let companyStr = textClean(companyEl);
+    let companyStr = textClean(companyElFinal);
+    console.log("[LJS] company scrape — companyElByAria:", companyElByAria ? companyElByAria.getAttribute("aria-label") : null,
+      "textClean(companyElFinal):", companyStr, "companyEl class:", companyEl ? companyEl.className : null);
+    // Reject obvious navigation/placeholder labels that slipped through
+    // (e.g. "Previous"/"Next" from the company-photo carousel).
+    if (/^(previous|next)$/i.test(companyStr)) companyStr = "";
+    // When using the aria-label fallback, the textContent is just the company
+    // name; when using class-based selectors, textClean already gives the name.
+    // For the aria-label container, prefer the inner link text (cleaner).
+    if (!companyStr && companyElByAria) {
+      const link = companyElByAria.querySelector('a[href*="linkedin.com/company/"]');
+      if (link) companyStr = (link.textContent || "").trim();
+    }
     let locationStr = location;
     let descHtml = descEl ? descEl.innerHTML : "";
     let descStr = _descText;
@@ -870,8 +909,15 @@
         }
       }
       if (!companyStr) {
-        const companyLink = root.querySelector('a[href*="linkedin.com/company/"][href*="/life/"], a[href*="linkedin.com/company/"]');
+        // Scope to the top-card (the container holding the title element) to
+        // avoid grabbing company links from the "Similar jobs" section when
+        // root is the whole detail panel.
+        const topCard = (titleEl && titleEl.closest) ? titleEl.closest(".job-details-jobs-unified-top-card, .jobs-unified-top-card, .topcard") : null;
+        const scope = topCard || root;
+        console.log("[LJS] company Fallback 2b — topCard:", !!topCard, "scope class:", scope.className.slice(0,80), "titleEl:", titleEl ? titleEl.tagName + "." + (titleEl.className||"").slice(0,40) : null);
+        const companyLink = scope.querySelector('a[href*="linkedin.com/company/"][href*="/life/"], a[href*="linkedin.com/company/"]');
         if (companyLink) companyStr = (companyLink.textContent || "").trim();
+        console.log("[LJS] company Fallback 2b — companyLink:", companyLink ? companyLink.getAttribute("href").slice(0,60) : null, "text:", companyStr);
       }
       if (!locationStr) {
         // Metadata paragraph (obfuscated or standard layout):
@@ -1022,6 +1068,7 @@
     btn.disabled = true;
     const original = btn.innerHTML;
     btn.querySelector(".ljs-save-btn__icon").textContent = "…";
+    console.log("[LJS] handleSave — meta.company:", JSON.stringify(meta.company), "meta.title:", JSON.stringify(meta.title), "meta.jobId:", meta.jobId);
     try {
       if (!meta.descriptionHtml) {
         await new Promise(r => setTimeout(r, 600));
@@ -1132,6 +1179,7 @@
     removeButton();
     injectedForJobId = String(jobId);
     console.log("[LJS] injectSaveButton — jobId:", jobId, "root:", root.className);
+    try {
 
     // Insert toolbar AFTER LinkedIn's action row (Easy Apply / Save buttons),
     // as a separate block. We do not append into LinkedIn's button container, so the
@@ -1440,6 +1488,7 @@
     refreshPreferenceBanner(root, jobId);
     // Info bar: seen status, repost detection, action history.
     refreshInfoBar(root, jobId);
+    } catch (e) { console.error("[LJS] injectSaveButton error:", e); }
   }
 
   function refreshInfoBar(root, jobId) {
@@ -1520,6 +1569,8 @@
       city: meta.city,
       location: meta.location,
       descLen: meta.descriptionText.length,
+      slot: !!document.getElementById(PREF_BANNER_ID + "-slot"),
+      toolbar: !!document.getElementById(TOOLBAR_ID),
     });
     if (!meta.title && !meta.company) { removePrefBanner(); return; }
     // If workplace type unknown AND description still loading, retry once after delay.
@@ -1547,6 +1598,7 @@
       // Show banner for good and bad. For neutral (unknown workplace / no cities),
       // show an informational banner so the user sees the feature is active.
       const slot = document.getElementById(PREF_BANNER_ID + "-slot");
+      console.log("[LJS] preference banner render — slot:", !!slot, "verdict:", ev.verdict, "toolbar:", !!document.getElementById(TOOLBAR_ID));
       if (!slot) return;
       const banner = document.createElement("div");
       banner.id = PREF_BANNER_ID;
