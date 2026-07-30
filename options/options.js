@@ -9,6 +9,51 @@ import {
 let jobs = [];
 let seen = [];
 
+// ----- Clipboard helper -----
+// When this page is loaded inside an iframe on a LinkedIn tab (the in-page
+// Panel overlay), the async Clipboard API (navigator.clipboard.writeText) is
+// gated behind the "clipboard-write" Permissions-Policy. LinkedIn does not
+// allow-list the extension origin, so that promise rejects silently. The
+// legacy execCommand("copy") path with a hidden <textarea> is not subject to
+// the same Permissions-Policy gating and works reliably in the iframe, so we
+// try the modern API first and fall back to execCommand on any rejection.
+function copyText(text) {
+  return new Promise((resolve, reject) => {
+    const t = String(text == null ? "" : text);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(resolve, () => fallbackCopy(t, resolve, reject));
+    } else {
+      fallbackCopy(t, resolve, reject);
+    }
+  });
+}
+function fallbackCopy(t, resolve, reject) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "0";
+    ta.style.width = "1px";
+    ta.style.height = "1px";
+    ta.style.padding = "0";
+    ta.style.border = "none";
+    ta.style.outline = "none";
+    ta.style.boxShadow = "none";
+    ta.style.background = "transparent";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, t.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    if (ok) resolve();
+    else reject(new Error("execCommand copy failed"));
+  } catch (e) {
+    reject(e);
+  }
+}
+
 // ----- Preferred cities -----
 const KEY_SETTINGS = "ljs_settings";
 function getSettings() {
@@ -147,7 +192,7 @@ function renderSaved() {
       const job = jobs.find(j => String(j.jobId) === String(id));
       if (!job) return;
       const txt = [job.title, job.company, job.location, job.url, "---", job.descriptionText].filter(Boolean).join("\n");
-      navigator.clipboard.writeText(txt).then(() => {
+      copyText(txt).then(() => {
         const orig = btn.textContent;
         btn.textContent = "✓";
         setTimeout(() => (btn.textContent = orig), 1200);
@@ -241,7 +286,7 @@ function renderSeen() {
       if (!s) return;
       const url = s.url || (s.jobIds && s.jobIds.length ? "https://www.linkedin.com/jobs/view/" + s.jobIds[0] + "/" : "");
       const txt = [s.title, s.company, s.location, url, "---", s.descriptionText].filter(Boolean).join("\n");
-      navigator.clipboard.writeText(txt).then(() => {
+      copyText(txt).then(() => {
         const orig = btn.textContent;
         btn.textContent = "✓";
         setTimeout(() => (btn.textContent = orig), 1200);
@@ -434,10 +479,10 @@ function showPreview(job, kind) {
   const copyTextBtn = document.getElementById("pv-copy-text");
   if (copyBtn) copyBtn.addEventListener("click", () => {
     const txt = [job.title, job.company, job.location, url, "---", descText].filter(Boolean).join("\n");
-    navigator.clipboard.writeText(txt).then(() => { copyBtn.textContent = "Copied"; setTimeout(() => (copyBtn.textContent = "Copy content"), 1500); });
+    copyText(txt).then(() => { copyBtn.textContent = "Copied"; setTimeout(() => (copyBtn.textContent = "Copy content"), 1500); });
   });
   if (copyTextBtn) copyTextBtn.addEventListener("click", () => {
-    navigator.clipboard.writeText(descText || "").then(() => { copyTextBtn.textContent = "Copied"; setTimeout(() => (copyTextBtn.textContent = "Copy as plain text"), 1500); });
+    copyText(descText || "").then(() => { copyTextBtn.textContent = "Copied"; setTimeout(() => (copyTextBtn.textContent = "Copy as plain text"), 1500); });
   });
 
   previewModal.hidden = false;

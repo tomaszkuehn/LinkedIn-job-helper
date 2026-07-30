@@ -1647,20 +1647,58 @@
   }
 
   async function saveTranslation(jobId, translatedText, sourceLang) {
-    // Update saved job (if present) with translation + source language.
+    const now = new Date().toISOString();
     const jobs = await storageGet(KEY_JOBS);
-    let changedJobs = false;
-    if (jobs[jobId]) {
-      jobs[jobId].translationEn = translatedText;
-      jobs[jobId].sourceLang = sourceLang || "";
-      jobs[jobId].translatedAt = new Date().toISOString();
-      changedJobs = true;
+    let job = jobs[jobId];
+
+    // If the viewed job is not yet saved, create it from the currently viewed
+    // detail so the translation has a job to attach to. This mirrors handleSave
+    // (scrape full meta, inherit status from seen by cardFingerprint).
+    if (!job) {
+      const root = findDetailRoot();
+      if (root) {
+        const meta = scrapeFromDetail(root, jobId);
+        if (meta && (meta.title || meta.company)) {
+          let status = "";
+          let statusSetAt = null;
+          try {
+            const cfp = await cardFingerprint(meta.title, meta.company);
+            const matches = await getAllSeenByCardFp(cfp);
+            if (matches.length && matches[0].status) {
+              status = matches[0].status;
+              statusSetAt = matches[0].statusSetAt || null;
+            }
+          } catch (e) { console.warn("[LJS] saveTranslation status lookup failed", e); }
+          job = {
+            jobId: meta.jobId,
+            title: meta.title,
+            company: meta.company,
+            location: meta.location,
+            workplaceType: meta.workplaceType || "",
+            salary: meta.salary || "",
+            url: meta.url,
+            descriptionHtml: meta.descriptionHtml || "",
+            descriptionText: meta.descriptionText || "",
+            savedAt: now,
+            sourceUrl: location.href,
+            status,
+            statusSetAt,
+          };
+          jobs[jobId] = job;
+        }
+      }
     }
-    if (changedJobs) await storageSet(KEY_JOBS, jobs);
+
+    if (job) {
+      job.translationEn = translatedText;
+      job.sourceLang = sourceLang || "";
+      job.translatedAt = now;
+      jobs[jobId] = job;
+      await storageSet(KEY_JOBS, jobs);
+    }
 
     // Also store translation on the seen entry (match by cardFingerprint).
     try {
-      // Read meta fresh to compute fingerprint.
       const root = findDetailRoot();
       if (root) {
         const meta = scrapeFromDetail(root, jobId);
@@ -1672,7 +1710,7 @@
           for (const e of matches) {
             e.translationEn = translatedText;
             e.sourceLang = sourceLang || "";
-            e.translatedAt = new Date().toISOString();
+            e.translatedAt = now;
             seen[e.fingerprint] = e;
             changedSeen = true;
           }
@@ -1680,6 +1718,18 @@
         }
       }
     } catch (e) { console.warn("[LJS] saveTranslation seen update failed", e); }
+
+    // Refresh the toolbar so the Save button reflects the newly-saved job.
+    try {
+      const saveBtn = document.getElementById(BTN_ID);
+      if (saveBtn && !saveBtn.classList.contains("ljs-save-btn--saved")) {
+        saveBtn.classList.add("ljs-save-btn--saved");
+        const icon = saveBtn.querySelector(".ljs-save-btn__icon");
+        if (icon) icon.textContent = "✓";
+      }
+      const root = findDetailRoot();
+      if (root) refreshInfoBar(root, jobId);
+    } catch (e) { /* non-fatal */ }
   }
 
   async function openTranslateOverlay(text, meta, jobId) {
@@ -1935,8 +1985,6 @@
           statusSetAt: null,
         });
       }
-      // After registering, show banner if repost.
-      showRepostBannerIfApplicable(fp, meta);
     } catch (e) {
       console.warn("[LJS] recordSeen error", e);
     }
@@ -1947,39 +1995,11 @@
     seenTimer = setTimeout(() => recordSeen(meta), 2000);
   }
 
-  // ---------- Banner: repost ----------
-  function showRepostBannerIfApplicable(fp, meta) {
-    getSeenByFp(fp).then(existing => {
-      if (!existing) return;
-      // Show banner only if same content was seen under a DIFFERENT jobId before.
-      const otherIds = existing.jobIds.filter(id => id !== meta.jobId);
-      if (otherIds.length === 0) return;
-      const firstDate = new Date(existing.firstSeenAt).toLocaleDateString("en-US");
-      showDetailBanner(
-        "👁 This job was already seen on " + firstDate +
-        " (under jobId " + otherIds.join(", ") + "). " +
-        "This is likely a repost (seenCount: " + existing.seenCount + ").",
-        "repost"
-      );
-    }).catch(() => {});
-  }
-
-  function showDetailBanner(msg, kind) {
-    let el = document.getElementById("ljs-detail-banner");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "ljs-detail-banner";
-      el.className = "ljs-detail-banner";
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.className = "ljs-detail-banner ljs-detail-banner--" + (kind || "info");
-    el.style.display = "block";
-  }
-  function hideDetailBanner() {
-    const el = document.getElementById("ljs-detail-banner");
-    if (el) el.style.display = "none";
-  }
+  // ---------- Banner: repost (removed — info bar chips already cover repost)
+  // Kept as no-ops so any stray callers do nothing instead of throwing.
+  function showRepostBannerIfApplicable() {}
+  function showDetailBanner() {}
+  function hideDetailBanner() {}
 
   // Check whether the current detail matches an already-seen job (on button injection).
   async function checkDetailSeen(root, jobId) {
@@ -1988,17 +2008,9 @@
     try {
       const fp = await detailFingerprint(meta.title, meta.company, meta.descriptionText);
       const existing = await getSeenByFp(fp);
-      if (existing && existing.jobIds.some(id => id !== jobId)) {
-        const firstDate = new Date(existing.firstSeenAt).toLocaleDateString("en-US");
-        showDetailBanner(
-          "👁 This job was already seen on " + firstDate +
-          " (under jobId " + existing.jobIds.filter(id => id !== jobId).join(", ") + "). " +
-          "Repost (seenCount: " + existing.seenCount + ").",
-          "repost"
-        );
-      } else {
-        hideDetailBanner();
-      }
+      // Repost info is shown in the toolbar info bar (see refreshInfoBar),
+      // so this check only ensures the seen entry is registered promptly.
+      void existing; void jobId;
     } catch {}
   }
 
